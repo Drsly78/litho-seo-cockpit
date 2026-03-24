@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Litho SEO Cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+:root{
+  --bg:#ffffff;--bg2:#f7f6f3;--bg3:#efeeea;--bg4:#e9e8e3;
+  --bd:#e8e7e2;--bd2:#f0efe9;
+  --t1:#1a1917;--t2:#787672;--t3:#a8a59e;
+  --ac:#7c5cbf;--ac2:#f0ebfa;--ac3:#6a4daa;
+  --gn:#4caf7d;--or:#e8935a;--rd:#d95f5f;
+  --font:'DM Sans',-apple-system,sans-serif;
+  --mono:'DM Mono','Courier New',monospace;
+  --r:8px;--r2:12px;--sw:220px;
+}
+body{font-family:var(--font);font-size:14px;color:var(--t1);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased}
+button{font-family:var(--font);cursor:pointer}
+input,textarea,select{font-family:var(--font)}
+#app{display:flex;height:100vh;overflow:hidden}
+aside{width:var(--sw);height:100vh;background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sh{display:flex;align-items:center;justify-content:space-between;padding:18px 14px 14px;border-bottom:1px solid var(--bd)}
+.logo{display:flex;align-items:center;gap:8px}
+.gem{font-size:18px;color:var(--ac)}
+.logo-t{font-size:14px;font-weight:600;color:var(--t1);letter-spacing:-.01em}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0;transition:background .3s}
+.sdot.ok{background:var(--gn)}.sdot.err{background:var(--rd)}
+.snav{flex:1;padding:8px 6px;display:flex;flex-direction:column;gap:1px}
+.ns{font-size:10.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.09em;padding:12px 10px 4px;margin-top:4px}
+.ns:first-child{padding-top:4px;margin-top:0}
+.ni{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r);color:var(--t2);font-size:13.5px;cursor:pointer;transition:background .12s,color .12s;user-select:none}
+.ni:hover{background:var(--bg3);color:var(--t1)}
+.ni.active{background:var(--bg4);color:var(--t1);font-weight:500}
+.nic{font-size:14px;width:18px;text-align:center;flex-shrink:0;color:var(--t3)}
+.ni.active .nic,.ni:hover .nic{color:var(--ac)}
+main{flex:1;overflow-y:auto;background:var(--bg)}
+.pg{display:none;padding:40px 48px;max-width:960px;animation:fi .15s ease}
+.pg.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.ph{margin-bottom:32px}
+.pt{font-size:22px;font-weight:600;color:var(--t1);letter-spacing:-.02em;margin-bottom:4px}
+.ps{font-size:13.5px;color:var(--t2)}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.sc{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r2);padding:16px 18px}
+.sv{font-size:26px;font-weight:600;color:var(--t1);letter-spacing:-.03em;line-height:1.1}
+.sl{font-size:12px;color:var(--t3);margin-top:4px}
+.card{border:1px solid var(--bd);border-radius:var(--r2);padding:20px 24px;margin-bottom:14px;background:var(--bg)}
+.ct{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13.5px;font-weight:500;border:none;cursor:pointer;transition:background .12s}
+.bp{background:var(--ac);color:#fff}.bp:hover{background:var(--ac3)}
+.bs{background:var(--bg2);color:var(--t1);border:1px solid var(--bd)}.bs:hover{background:var(--bg3)}
+.bg{background:transparent;color:var(--t2);border:1px solid var(--bd)}.bg:hover{background:var(--bg3);color:var(--t1)}
+.btn-google{background:#fff;color:#3c4043;border:1px solid var(--bd);display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:var(--r);font-size:13.5px;font-weight:500;cursor:pointer;transition:background .12s}
+.btn-google:hover{background:var(--bg2)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:13px;font-weight:500;color:var(--t2);margin-bottom:6px}
+.fh{font-size:12px;color:var(--t3);margin-top:4px}
+.inp{width:100%;padding:8px 12px;border:1px solid var(--bd);border-radius:var(--r);font-size:13.5px;color:var(--t1);background:var(--bg);outline:none;transition:border .12s}
+.inp:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac2)}
+.bge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11.5px;font-weight:500}
+.b-gray{background:var(--bg2);color:var(--t2)}.b-green{background:#edf7f1;color:#2d8a5a}
+.b-purple{background:var(--ac2);color:var(--ac)}.b-orange{background:#fdf3ec;color:#c4622a}
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.dv{height:1px;background:var(--bd);margin:22px 0}
+.tw{display:flex;flex-wrap:wrap;gap:10px}
+.al{display:flex;gap:12px;padding:13px 16px;border-radius:var(--r);margin-bottom:18px;font-size:13.5px;line-height:1.5}
+.al-i{background:var(--ac2);border:1px solid #d4c4f0;color:#4a2d8a}
+.al-w{background:#fffbeb;border:1px solid #f5d878;color:#7a5c00}
+.tbl-wrap{border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--bg2)}
+th{padding:10px 14px;text-align:left;font-size:11.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bd)}
+tbody tr{border-bottom:1px solid var(--bd2);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg2)}
+td{padding:10px 14px;font-size:13.5px;vertical-align:middle}
+#tc{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:1000}
+.tos{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--r2);font-size:13.5px;max-width:300px;color:#fff;animation:fi .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.12)}
+.t-ok{background:#1f5c3a}.t-err{background:#7a2020}.t-def{background:var(--t1)}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:var(--t3)}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="sh">
+      <div class="logo"><span class="gem">◈</span><span class="logo-t">Litho SEO</span></div>
+      <div class="sdot" id="sdot" title="Statut Shopify"></div>
+    </div>
+    <nav class="snav">
+      <div class="ns">Contenu</div>
+      <div class="ni active" data-p="dashboard"><span class="nic">⬡</span><span>Tableau de bord</span></div>
+      <div class="ni" data-p="articles"><span class="nic">◎</span><span>Articles</span></div>
+      <div class="ni" data-p="create"><span class="nic">✦</span><span>Créer un article</span></div>
+      <div class="ni" data-p="optimize"><span class="nic">⟳</span><span>Optimiser</span></div>
+      <div class="ni" data-p="cocon"><span class="nic">⬟</span><span>Cocon</span></div>
+      <div class="ni" data-p="history"><span class="nic">◷</span><span>Historique</span></div>
+      <div class="ns">Configuration</div>
+      <div class="ni" data-p="connections"><span class="nic">⚡</span><span>Connexions</span></div>
+      <div class="ni" data-p="prompts"><span class="nic">✎</span><span>Prompts</span></div>
+      <div class="ni" data-p="settings"><span class="nic">⚙</span><span>Réglages</span></div>
+    </nav>
+  </aside>
+  <main>
+    <div id="p-dashboard"   class="pg on"></div>
+    <div id="p-articles"    class="pg"></div>
+    <div id="p-create"      class="pg"></div>
+    <div id="p-optimize"    class="pg"></div>
+    <div id="p-cocon"       class="pg"></div>
+    <div id="p-history"     class="pg"></div>
+    <div id="p-connections" class="pg"></div>
+    <div id="p-prompts"     class="pg"></div>
+    <div id="p-settings"    class="pg"></div>
+  </main>
+</div>
+<div id="tc"></div>
+<script>
+const GOOGLE_DEFAULTS={
+  client_id:'408254404499-s31711eu04skqog3s02ik2qous3c43v9.apps.googleusercontent.com',
+  client_secret:'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'
+};
+const GOOGLE_SCOPES=[
+  'https://www.googleapis.com/auth/webmasters.readonly',
+  'https://www.googleapis.com/auth/analytics.readonly',
+  'https://www.googleapis.com/auth/spreadsheets'
+].join(' ');
+
+const S={
+  get(k){try{const v=localStorage.getItem('litho_'+k);if(!v)return null;try{return JSON.parse(v)}catch{return v}}catch{return null}},
+  set(k,v){try{localStorage.setItem('litho_'+k,typeof v==='string'?v:JSON.stringify(v))}catch{}},
+  has(){return!!(this.get('shopify_domain')&&this.get('shopify_token')&&this.get('proxy_url'))},
+  hist(){return this.get('history')||[]},
+  addHist(e){const h=this.hist();h.unshift({...e,id:Date.now(),date:new Date().toISOString()});this.set('history',h.slice(0,200))}
+};
+
+function toast(msg,t='def'){
+  const c=document.getElementById('tc'),el=document.createElement('div');
+  el.className='tos t-'+t;
+  el.innerHTML='<span>'+(t==='ok'?'✓':t==='err'?'✕':'◈')+'</span><span>'+msg+'</span>';
+  c.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .2s';setTimeout(()=>el.remove(),200)},3500);
+}
+function setDot(s){
+  const d=document.getElementById('sdot');
+  d.className='sdot'+(s==='ok'?' ok':s==='err'?' err':'');
+  d.title=s==='ok'?'Shopify connecté':s==='err'?'Erreur connexion':'Non configuré';
+}
+function fd(iso){if(!iso)return'—';return new Date(iso).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}
+function sh(h){const d=document.createElement('div');d.innerHTML=h;return d.textContent||''}
+function wc(h){return sh(h).trim().split(/\s+/).filter(Boolean).length}
+function tr(s,n=65){return s&&s.length>n?s.slice(0,n)+'…':(s||'')}
+function sp(){return'<span class="spinner"></span>'}
+
+function nav(p){
+  document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('active',el.dataset.p===p));
+  document.querySelectorAll('.pg').forEach(el=>el.classList.toggle('on',el.id==='p-'+p));
+  ({dashboard:rDash,articles:rArticles,connections:rConn,prompts:rPrompts,settings:rSettings,history:rHist,
+    create:()=>rPH('create','Créer un article','Génération via Anthropic + push brouillon Shopify','✦'),
+    optimize:()=>rPH('optimize','Optimiser','Diagnostic et réécriture des articles existants','⟳'),
+    cocon:()=>rPH('cocon','Cocon sémantique','Vue pilier → mères → satellites + export Obsidian','⬟'),
+  })[p]?.();
+}
+
+async function sReq(path,method='GET',body=null){
+  const proxy=S.get('proxy_url'),domain=S.get('shopify_domain'),token=S.get('shopify_token');
+  if(!proxy||!domain||!token)throw new Error('Shopify non configuré — voir Connexions');
+  const pl={domain,token,path,method};if(body)pl.body=body;
+  const r=await fetch(proxy,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pl)});
+  if(!r.ok){const t=await r.text();throw new Error('Proxy '+r.status+': '+t)}
+  return r.json();
+}
+async function getAllArticles(blogId){
+  let all=[],p=1,bt;
+  do{const d=await sReq('/admin/api/2024-01/blogs/'+blogId+'/articles.json?limit=50&page='+p);
+    bt=d.articles||[];all=all.concat(bt);p++;}while(bt.length===50);
+  return all;
+}
+
+function isGoogleTokenValid(){
+  const token=S.get('google_access_token'),expiry=S.get('google_token_expiry');
+  if(!token)return false;
+  if(expiry&&Date.now()>expiry){S.set('google_access_token',null);return false;}
+  return true;
+}
+function googleLogin(){
+  const clientId=S.get('google_client_id')||GOOGLE_DEFAULTS.client_id;
+  const redirectUri=window.location.origin+window.location.pathname;
+  const params=new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,
+    response_type:'token',scope:GOOGLE_SCOPES,include_granted_scopes:'true',prompt:'consent'});
+  window.location.href='https://accounts.google.com/o/oauth2/v2/auth?'+params.toString();
+}
+function googleLogout(){
+  S.set('google_access_token',null);S.set('google_token_expiry',null);
+  toast('Google déconnecté');rConn();
+}
+function handleGoogleCallback(){
+  const hash=window.location.hash;if(!hash)return;
+  const params=new URLSearchParams(hash.slice(1));
+  const token=params.get('access_token'),expiresIn=params.get('expires_in');
+  if(token){
+    S.set('google_access_token',token);
+    S.set('google_token_expiry',Date.now()+parseInt(expiresIn)*1000);
+    window.history.replaceState(null,'',window.location.pathname);
+    toast('Google connecté avec succès','ok');
+  }
+}
+
+function rDash(){
+  const pg=document.getElementById('p-dashboard'),cfg=S.has(),gOk=isGoogleTokenValid();
+  pg.innerHTML='<div class="ph"><div class="pt">Tableau de bord</div>'
+    +'<div class="ps">'+new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+'</div></div>'
+    +(!cfg?'<div class="al al-i">◈ &nbsp;Bienvenue ! Configurez vos APIs dans <span style="text-decoration:underline;cursor:pointer;font-weight:500" onclick="nav(\'connections\')">Connexions →</span></div>':'')
+    +'<div class="sgrid">'
+    +'<div class="sc"><div class="sv" id="sa">—</div><div class="sl">Articles total</div></div>'
+    +'<div class="sc"><div class="sv" id="sp2">—</div><div class="sl">Publiés</div></div>'
+    +'<div class="sc"><div class="sv" id="sb">—</div><div class="sl">Blogs / pierres</div></div>'
+    +'<div class="sc"><div class="sv">'+S.hist().length+'</div><div class="sl">Générés via cockpit</div></div>'
+    +'</div>'
+    +'<div class="card"><div class="ct">Statut des connexions</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">'
+    +[['Shopify',cfg],['Anthropic',!!S.get('anthropic_key')],['Google',gOk],['DataForSEO',!!S.get('dataforseo_login')]]
+      .map(([n,ok])=>'<div style="display:flex;align-items:center;gap:8px">'
+        +'<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;background:'+(ok?'var(--gn)':'var(--bd)')+'"></span>'
+        +'<div><div style="font-size:13px;font-weight:500">'+n+'</div>'
+        +'<div style="font-size:11.5px;color:var(--t3)">'+(ok?'Connecté':'Non configuré')+'</div></div></div>').join('')
+    +'</div></div>'
+    +'<div class="card"><div class="ct">Actions rapides</div><div class="tw">'
+    +'<button class="btn bp" onclick="nav(\'create\')">✦ Créer un article</button>'
+    +'<button class="btn bs" onclick="nav(\'articles\')">◎ Articles</button>'
+    +'<button class="btn bs" onclick="nav(\'connections\')">⚡ Connexions</button>'
+    +'</div></div>'
+    +'<div class="card"><div class="ct">Activité récente</div>'+rRecent()+'</div>';
+  if(cfg)lDash();
+}
+async function lDash(){
+  try{
+    const r=await sReq('/admin/api/2024-01/blogs.json');
+    const blogs=r.blogs||[];setDot('ok');
+    document.getElementById('sb').textContent=blogs.length;
+    let tot=0,pub=0;
+    await Promise.all(blogs.map(async b=>{try{const a=await getAllArticles(b.id);tot+=a.length;pub+=a.filter(x=>x.published_at).length;}catch{}}));
+    document.getElementById('sa').textContent=tot;document.getElementById('sp2').textContent=pub;
+  }catch(e){setDot('err');toast('Erreur Shopify : '+e.message,'err')}
+}
+function rRecent(){
+  const h=S.hist().slice(0,5);
+  if(!h.length)return'<div style="text-align:center;padding:20px;color:var(--t3)">Aucune activité pour l\'instant</div>';
+  return h.map(e=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd2)">'
+    +'<span style="font-size:11px;color:var(--t3);white-space:nowrap">'+fd(e.date)+'</span>'
+    +'<span class="bge '+(e.type==='create'?'b-purple':'b-gray')+'">'+(e.type==='create'?'Créé':'Optimisé')+'</span>'
+    +'<span style="font-size:13.5px">'+tr(e.title,55)+'</span></div>').join('');
+}
+
+function rArticles(){
+  const pg=document.getElementById('p-articles');
+  pg.innerHTML='<div class="ph"><div class="pt">Articles</div><div class="ps">Tous vos articles Shopify par blog</div></div>'
+    +'<div id="ab"><div style="display:flex;align-items:center;gap:10px;color:var(--t2)">'+sp()+' Chargement des blogs…</div></div>';
+  if(!S.has()){document.getElementById('ab').innerHTML='<div class="al al-i">◈ &nbsp;Shopify non configuré — <span style="text-decoration:underline;cursor:pointer;font-weight:500" onclick="nav(\'connections\')">Connexions →</span></div>';return;}
+  sReq('/admin/api/2024-01/blogs.json').then(r=>{
+    const bl=r.blogs||[];
+    if(!bl.length){document.getElementById('ab').innerHTML='<div style="text-align:center;padding:48px;color:var(--t3)">Aucun blog trouvé</div>';return;}
+    rBlogTabs(bl);
+  }).catch(e=>{document.getElementById('ab').innerHTML='<div class="al al-w">⚠ '+e.message+'</div>';setDot('err');});
+}
+function rBlogTabs(blogs){
+  const body=document.getElementById('ab');
+  body.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">'
+    +'<div style="display:flex;gap:4px;flex-wrap:wrap" id="btabs">'
+    +blogs.map((b,i)=>'<button class="btn '+(i===0?'bp':'bg')+'" data-bid="'+b.id+'" style="font-size:12.5px;padding:6px 12px">'+b.title+'</button>').join('')
+    +'</div><button class="btn bg" id="aref" style="font-size:12.5px">⟳ Actualiser</button></div>'
+    +'<div id="at"><div style="display:flex;align-items:center;gap:10px;color:var(--t2)">'+sp()+' Chargement…</div></div>';
+  lBlogArts(blogs[0].id);
+  document.getElementById('btabs').addEventListener('click',e=>{
+    const btn=e.target.closest('button[data-bid]');if(!btn)return;
+    document.querySelectorAll('#btabs button').forEach(b=>{b.className='btn '+(b===btn?'bp':'bg');b.style.fontSize='12.5px';b.style.padding='6px 12px';});
+    lBlogArts(btn.dataset.bid);
+  });
+  document.getElementById('aref').onclick=()=>{const a=document.querySelector('#btabs button.bp');if(a)lBlogArts(a.dataset.bid);};
+}
+async function lBlogArts(blogId){
+  const w=document.getElementById('at');
+  w.innerHTML='<div style="display:flex;align-items:center;gap:10px;color:var(--t2)">'+sp()+' Chargement…</div>';
+  try{
+    const arts=await getAllArticles(blogId);
+    arts.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
+    if(!arts.length){w.innerHTML='<div style="text-align:center;padding:48px;color:var(--t3)">Aucun article dans ce blog</div>';return;}
+    w.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      +'<span style="font-size:13px;color:var(--t2)">'+arts.length+' article'+(arts.length>1?'s':'')+'</span>'
+      +'<input class="inp" id="as2" type="search" placeholder="Rechercher…" style="width:220px;padding:6px 10px;font-size:13px"></div>'
+      +'<div class="tbl-wrap"><table><thead><tr><th>Titre</th><th>Statut</th><th>Mots</th><th>Mis à jour</th></tr></thead>'
+      +'<tbody id="atb">'+arts.map(a=>{const words=wc(a.body_html||'');
+        return'<tr data-t="'+(a.title||'').toLowerCase()+'">'
+          +'<td><div style="font-weight:500">'+tr(a.title,60)+'</div>'
+          +'<div style="font-size:11.5px;color:var(--t3);font-family:var(--mono);margin-top:2px">/'+a.handle+'</div></td>'
+          +'<td><span class="bge '+(a.published_at?'b-green':'b-gray')+'">'+(a.published_at?'Publié':'Brouillon')+'</span></td>'
+          +'<td style="color:'+(words<800?'var(--or)':'var(--t2)')+'">'+words.toLocaleString('fr')+'</td>'
+          +'<td style="color:var(--t2);font-size:13px">'+fd(a.updated_at)+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+    document.getElementById('as2').oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#atb tr').forEach(r=>{r.style.display=r.dataset.t.includes(q)?'':'none';});};
+  }catch(e){w.innerHTML='<div class="al al-w">⚠ '+e.message+'</div>';}
+}
+
+function connCard(id,icon,name,desc,configured,extraHtml,testable){
+  return'<div class="card">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
+    +'<div style="display:flex;align-items:center;gap:12px">'
+    +'<div style="width:36px;height:36px;background:var(--bg2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:17px">'+icon+'</div>'
+    +'<div><div style="font-size:14px;font-weight:600">'+name+'</div><div style="font-size:12px;color:var(--t3)">'+desc+'</div></div></div>'
+    +'<div style="display:flex;align-items:center;gap:7px">'
+    +'<span id="dot-'+id+'" style="width:8px;height:8px;border-radius:50%;background:'+(configured?'var(--gn)':'var(--bd)')+';display:inline-block"></span>'
+    +'<span style="font-size:12px;color:'+(configured?'var(--gn)':'var(--t3)')+'">'+(configured?'Connecté':'Non configuré')+'</span></div></div>'
+    +'<div style="border-top:1px solid var(--bd2);padding-top:16px">'+extraHtml+'</div></div>';
+}
+
+function rConn(){
+  const gOk=isGoogleTokenValid();
+  document.getElementById('p-connections').innerHTML=
+    '<div class="ph"><div class="pt">Connexions</div><div class="ps">Toutes vos intégrations API</div></div>'
+    +'<div class="al al-w">⚠ &nbsp;Les clés sont stockées en localStorage — appareil personnel uniquement.</div>'
+
+    +connCard('shopify','🛍','Shopify','Lecture et écriture articles, produits',S.has(),
+      '<div class="fg"><label class="fl">Domaine Shopify</label><input class="inp" id="cf-sd" type="text" placeholder="monstore.myshopify.com" value="'+(S.get('shopify_domain')||'')+'"></div>'
+      +'<div class="fg"><label class="fl">Token Admin API</label><input class="inp" id="cf-st" type="password" placeholder="shpat_xxx" value="'+(S.get('shopify_token')||'')+'"><div class="fh">Apps → Développer des apps → Créer une app → Admin API access token</div></div>'
+      +'<div class="fg"><label class="fl">URL proxy Cloudflare Worker</label><input class="inp" id="cf-pu" type="text" placeholder="https://litho-proxy.xxx.workers.dev" value="'+(S.get('proxy_url')||'')+'"><div class="fh">Voir cloudflare-worker.js — à déployer sur workers.cloudflare.com</div></div>'
+      +'<div class="tw"><button class="btn bp" id="save-shopify">Enregistrer</button><button class="btn bg" id="test-shopify">Tester la connexion</button><span id="res-shopify" style="font-size:13px;color:var(--t2)"></span></div>')
+
+    +connCard('anthropic','◈','Anthropic','Génération et réécriture d\'articles',!!S.get('anthropic_key'),
+      '<div class="fg"><label class="fl">Clé API Anthropic</label><input class="inp" id="cf-ak" type="password" placeholder="sk-ant-xxx" value="'+(S.get('anthropic_key')||'')+'"></div>'
+      +'<button class="btn bp" id="save-anthropic">Enregistrer</button>')
+
+    +connCard('google','G','Google','Search Console · Analytics 4 · Sheets',gOk,
+      '<div class="fg"><label class="fl">Google Client ID</label><input class="inp" id="cf-gci" type="text" value="'+(S.get('google_client_id')||GOOGLE_DEFAULTS.client_id)+'"><div class="fh">Pré-rempli — modifiable si vous créez un nouveau projet Google Cloud</div></div>'
+      +'<div class="fg"><label class="fl">Google Client Secret</label><input class="inp" id="cf-gcs" type="password" value="'+(S.get('google_client_secret')||GOOGLE_DEFAULTS.client_secret)+'"></div>'
+      +'<div class="fg"><label class="fl">GSC Site URL</label><input class="inp" id="cf-gsu" type="text" placeholder="https://mineralfrance.com/" value="'+(S.get('gsc_site_url')||'')+'"><div class="fh">URL exacte telle qu\'elle apparaît dans Search Console (avec le / final)</div></div>'
+      +'<div class="fg"><label class="fl">GA4 Property ID</label><input class="inp" id="cf-ga4" type="text" placeholder="123456789" value="'+(S.get('ga4_property_id')||'')+'"><div class="fh">Google Analytics → Admin → Propriété → ID de la propriété</div></div>'
+      +'<div class="tw"><button class="btn bp" id="save-google">Enregistrer</button>'
+      +(gOk
+        ?'<button class="btn bg" onclick="googleLogout()">Déconnecter Google</button><span style="font-size:12.5px;color:var(--gn)">✓ Token actif</span>'
+        :'<button class="btn-google" onclick="googleLogin()"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Se connecter avec Google</button>')
+      +'</div>')
+
+    +connCard('dataforseo','◉','DataForSEO','Volume de recherche, KD, SERP',!!S.get('dataforseo_login'),
+      '<div class="fg"><label class="fl">Login</label><input class="inp" id="cf-dfl" type="text" placeholder="email@exemple.com" value="'+(S.get('dataforseo_login')||'')+'"></div>'
+      +'<div class="fg"><label class="fl">Mot de passe API</label><input class="inp" id="cf-dfp" type="password" placeholder="••••••" value="'+(S.get('dataforseo_pass')||'')+'"></div>'
+      +'<button class="btn bp" id="save-dataforseo">Enregistrer</button>')
+
+    +connCard('obsidian','⬟','Obsidian','Export local du cocon sémantique',!!S.get('obsidian_port'),
+      '<div class="fg"><label class="fl">Port API locale</label><input class="inp" id="cf-op" type="number" placeholder="27123" value="'+(S.get('obsidian_port')||'27123')+'"><div class="fh">Plugin Local REST API requis — fonctionne uniquement en local</div></div>'
+      +'<button class="btn bp" id="save-obsidian">Enregistrer</button>');
+
+  document.getElementById('save-shopify').onclick=()=>{
+    S.set('shopify_domain',document.getElementById('cf-sd').value.trim());
+    S.set('shopify_token', document.getElementById('cf-st').value.trim());
+    S.set('proxy_url',     document.getElementById('cf-pu').value.trim());
+    document.getElementById('dot-shopify').style.background=S.has()?'var(--gn)':'var(--or)';
+    toast('Shopify enregistré','ok');
+  };
+  document.getElementById('test-shopify').onclick=async()=>{
+    const btn=document.getElementById('test-shopify'),res=document.getElementById('res-shopify');
+    btn.disabled=true;res.innerHTML=sp()+' Test…';
+    try{
+      const d=await sReq('/admin/api/2024-01/shop.json');
+      const name=d.shop?.name||'OK';
+      res.innerHTML='<span style="color:var(--gn)">✓ Connecté — '+name+'</span>';
+      setDot('ok');document.getElementById('dot-shopify').style.background='var(--gn)';
+      toast('Shopify connecté — '+name,'ok');
+    }catch(e){res.innerHTML='<span style="color:var(--rd)">✕ '+e.message+'</span>';setDot('err');toast('Erreur','err');}
+    finally{btn.disabled=false;}
+  };
+  document.getElementById('save-anthropic').onclick=()=>{S.set('anthropic_key',document.getElementById('cf-ak').value.trim());toast('Anthropic enregistré','ok');};
+  document.getElementById('save-google').onclick=()=>{
+    S.set('google_client_id',    document.getElementById('cf-gci').value.trim());
+    S.set('google_client_secret',document.getElementById('cf-gcs').value.trim());
+    S.set('gsc_site_url',        document.getElementById('cf-gsu').value.trim());
+    S.set('ga4_property_id',     document.getElementById('cf-ga4').value.trim());
+    toast('Config Google enregistrée','ok');
+  };
+  document.getElementById('save-dataforseo').onclick=()=>{
+    S.set('dataforseo_login',document.getElementById('cf-dfl').value.trim());
+    S.set('dataforseo_pass', document.getElementById('cf-dfp').value.trim());
+    toast('DataForSEO enregistré','ok');
+  };
+  document.getElementById('save-obsidian').onclick=()=>{S.set('obsidian_port',document.getElementById('cf-op').value.trim());toast('Obsidian enregistré','ok');};
+}
+
+const DEF_PROMPTS={
+  prompt_create:'Tu es un expert SEO et rédacteur spécialisé en lithothérapie et bijoux en pierre naturelle.\n\nTon objectif : rédiger un article de blog complet et optimisé SEO pour une boutique Shopify.\n\nRègles de structure :\n- Utiliser uniquement des H2 et H3 (le H1 est le titre Shopify, ne pas l\'inclure)\n- Longueur cible : 1200 à 1800 mots\n- Inclure un encart produit HTML après le 2e H2\n- Terminer par une FAQ avec 3 questions minimum\n\nRègles de maillage interne (exactement 4 liens) :\n- 1 lien vers la page mère / pilier de la pierre\n- 1 lien vers l\'article précédent du cocon\n- 1 lien vers un produit de la boutique\n- 1 lien vers une collection\n\nRetourner uniquement le HTML du body, sans balises html/head/body.',
+  prompt_optimize:'Tu es un expert SEO spécialisé en lithothérapie et bijoux en pierre naturelle.\n\nTu reçois un article existant avec ses données de performance.\n\nDiagnostique les faiblesses et propose une version améliorée.\n\nPoints de contrôle :\n- Longueur : minimum 1200 mots\n- Structure H2/H3 équilibrée\n- FAQ présente (3 questions minimum)\n- Maillage interne : 4 liens\n- Encart produit HTML présent\n- Meta description 150-160 caractères\n\nRetourner le HTML amélioré du body uniquement.'
+};
+
+function rPrompts(){
+  document.getElementById('p-prompts').innerHTML=
+    '<div class="ph"><div class="pt">Prompts système</div><div class="ps">Instructions envoyées à Anthropic pour chaque module de génération</div></div>'
+    +'<div class="al al-i">◈ &nbsp;Ces prompts sont injectés avant chaque appel API Anthropic. Personnalise-les selon ton style éditorial.</div>'
+    +[{id:'prompt_create',label:'Prompt — Créer un article',hint:'Utilisé par le module "Créer un article"'},
+      {id:'prompt_optimize',label:'Prompt — Optimiser un article',hint:'Utilisé par le module "Optimiser"'}]
+    .map(p=>'<div class="card"><div class="ct">'+p.label+'</div>'
+      +'<div class="fg"><textarea class="inp" id="'+p.id+'" rows="12" style="resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.7">'+(S.get(p.id)||DEF_PROMPTS[p.id])+'</textarea>'
+      +'<div class="fh">'+p.hint+'</div></div>'
+      +'<div class="tw">'
+      +'<button class="btn bp" onclick="S.set(\''+p.id+'\',document.getElementById(\''+p.id+'\').value.trim());toast(\'Prompt enregistré\',\'ok\')">Enregistrer</button>'
+      +'<button class="btn bg" onclick="document.getElementById(\''+p.id+'\').value=DEF_PROMPTS[\''+p.id+'\'];toast(\'Prompt par défaut restauré\')">Restaurer défaut</button>'
+      +'</div></div>').join('');
+}
+
+function rSettings(){
+  document.getElementById('p-settings').innerHTML=
+    '<div class="ph"><div class="pt">Réglages éditoriaux</div><div class="ps">Paramètres permanents injectés dans chaque génération</div></div>'
+    +'<div class="card">'
+    +'<div class="fg"><label class="fl">Domaine du site</label><input class="inp" id="rs-site" type="text" placeholder="mineralfrance.com" value="'+(S.get('site_domain')||'')+'"><div class="fh">Utilisé pour construire les URLs de maillage interne</div></div>'
+    +'<div class="fg"><label class="fl">Ton éditorial</label><textarea class="inp" id="rs-tone" rows="3" placeholder="Ton bienveillant et pédagogique, vouvoiement…" style="resize:vertical">'+(S.get('editorial_tone')||'')+'</textarea></div>'
+    +'<div class="fg"><label class="fl">Règles de maillage interne</label><textarea class="inp" id="rs-links" rows="3" placeholder="1 lien page mère, 1 article précédent, 1 produit, 1 collection. Max 4 liens." style="resize:vertical">'+(S.get('internal_links_rules')||'')+'</textarea></div>'
+    +'<div class="fg"><label class="fl">Concurrents principaux</label><input class="inp" id="rs-comp" type="text" placeholder="concurrent1.fr, concurrent2.fr" value="'+(S.get('competitors')||'')+'"></div>'
+    +'<button class="btn bp" id="rs-save">Enregistrer</button></div>'
+    +'<div class="dv"></div>'
+    +'<div class="tw"><button class="btn bg" id="rs-exp">↓ Exporter toute la config</button>'
+    +'<button class="btn bg" id="rs-imp">↑ Importer une config</button>'
+    +'<input type="file" id="rs-impf" accept=".json" style="display:none"></div>';
+
+  document.getElementById('rs-save').onclick=()=>{
+    S.set('site_domain',document.getElementById('rs-site').value.trim());
+    S.set('editorial_tone',document.getElementById('rs-tone').value.trim());
+    S.set('internal_links_rules',document.getElementById('rs-links').value.trim());
+    S.set('competitors',document.getElementById('rs-comp').value.trim());
+    toast('Réglages enregistrés','ok');
+  };
+  const allK=['shopify_domain','shopify_token','proxy_url','anthropic_key','google_client_id','google_client_secret',
+    'ga4_property_id','gsc_site_url','dataforseo_login','dataforseo_pass','obsidian_port','sheets_id',
+    'site_domain','editorial_tone','internal_links_rules','competitors','prompt_create','prompt_optimize'];
+  document.getElementById('rs-exp').onclick=()=>{
+    const cfg={};allK.forEach(k=>{const v=S.get(k);if(v)cfg[k]=v;});
+    const b=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
+    const u=URL.createObjectURL(b),a=document.createElement('a');
+    a.href=u;a.download='litho-seo-config.json';a.click();URL.revokeObjectURL(u);toast('Config exportée','ok');
+  };
+  document.getElementById('rs-imp').onclick=()=>document.getElementById('rs-impf').click();
+  document.getElementById('rs-impf').onchange=e=>{
+    const f=e.target.files[0];if(!f)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{try{const c=JSON.parse(ev.target.result);Object.entries(c).forEach(([k,v])=>{if(v)S.set(k,v);});toast('Config importée','ok');setTimeout(rSettings,400);}catch{toast('Fichier invalide','err');}};
+    reader.readAsText(f);
+  };
+}
+
+function rHist(){
+  const h=S.hist();
+  document.getElementById('p-history').innerHTML=
+    '<div class="ph"><div class="pt">Historique</div><div class="ps">'+h.length+' entrée'+(h.length>1?'s':'')+'</div></div>'
+    +(!h.length?'<div style="text-align:center;padding:48px;color:var(--t3)"><div style="font-size:28px;margin-bottom:10px;opacity:.3">◷</div>Aucune activité pour l\'instant</div>'
+    :'<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Action</th><th>Titre</th></tr></thead><tbody>'
+    +h.map(e=>'<tr><td style="color:var(--t2);font-size:13px;white-space:nowrap">'+fd(e.date)+'</td>'
+      +'<td><span class="bge '+(e.type==='create'?'b-purple':'b-gray')+'">'+(e.type==='create'?'Créé':'Optimisé')+'</span></td>'
+      +'<td>'+tr(e.title,65)+'</td></tr>').join('')
+    +'</tbody></table></div>');
+}
+
+function rPH(id,title,sub,icon){
+  document.getElementById('p-'+id).innerHTML=
+    '<div class="ph"><div class="pt">'+title+'</div><div class="ps">'+sub+'</div></div>'
+    +'<div class="card" style="text-align:center;padding:52px">'
+    +'<div style="font-size:30px;margin-bottom:16px;opacity:.2">'+icon+'</div>'
+    +'<div style="font-weight:600;margin-bottom:8px">Module en construction</div>'
+    +'<p style="color:var(--t2);font-size:13.5px;max-width:400px;margin:0 auto">'
+    +'Ce module sera activé une fois Shopify connecté et les prompts configurés dans '
+    +'<span style="color:var(--ac);cursor:pointer" onclick="nav(\'prompts\')">Prompts →</span></p></div>';
+}
+
+document.querySelectorAll('.ni[data-p]').forEach(el=>el.addEventListener('click',()=>nav(el.dataset.p)));
+handleGoogleCallback();
+if(S.has()){sReq('/admin/api/2024-01/shop.json').then(()=>setDot('ok')).catch(()=>setDot('err'));}
+nav('dashboard');
+</script>
+</body>
+</html>
