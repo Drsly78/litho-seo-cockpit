@@ -125,8 +125,8 @@ td{padding:10px 14px;font-size:13.5px;vertical-align:middle}
 <script>
 const SHOPIFY_OAUTH_CLIENT_ID='da4180870578d677f280e3f34bc54cf9';
 const GOOGLE_DEFAULTS={
-  client_id:'408254404499-s31711eu04skqog3s02ik2qous3c43v9.apps.googleusercontent.com',
-  client_secret:'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'
+  client_id:'',
+  client_secret:''
 };
 const GOOGLE_SCOPES=[
   'https://www.googleapis.com/auth/webmasters.readonly',
@@ -164,9 +164,9 @@ function nav(p){
   document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('active',el.dataset.p===p));
   document.querySelectorAll('.pg').forEach(el=>el.classList.toggle('on',el.id==='p-'+p));
   ({dashboard:rDash,articles:rArticles,connections:rConn,prompts:rPrompts,settings:rSettings,history:rHist,
-    create:()=>rPH('create','Créer un article','Génération via Anthropic + push brouillon Shopify','✦'),
+    create:rCreate,
     optimize:()=>rPH('optimize','Optimiser','Diagnostic et réécriture des articles existants','⟳'),
-    cocon:()=>rPH('cocon','Cocon sémantique','Vue pilier → mères → satellites + export Obsidian','⬟'),
+    cocon:rCocon,
   })[p]?.();
 }
 
@@ -514,6 +514,623 @@ function rPH(id,title,sub,icon){
     +'<p style="color:var(--t2);font-size:13.5px;max-width:400px;margin:0 auto">'
     +'Ce module sera activé une fois Shopify connecté et les prompts configurés dans '
     +'<span style="color:var(--ac);cursor:pointer" onclick="nav(\'prompts\')">Prompts →</span></p></div>';
+}
+
+
+// ─── DATAFORSEO API ───────────────────────────────────────────
+async function dfsReq(endpoint, payload) {
+  const login = S.get('dataforseo_login'), pass = S.get('dataforseo_pass');
+  if (!login || !pass) return null;
+  const auth = btoa(login + ':' + pass);
+  try {
+    const r = await fetch('https://api.dataforseo.com' + endpoint, {
+      method: 'POST',
+      headers: { 'Authorization': 'Basic ' + auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return r.json();
+  } catch { return null; }
+}
+
+async function getSerp(keyword) {
+  const data = await dfsReq('/v3/serp/google/organic/live/advanced', [{
+    keyword, language_code: 'fr', location_code: 2250, device: 'desktop', depth: 10
+  }]);
+  if (!data || !data.tasks || !data.tasks[0].result) return null;
+  return data.tasks[0].result[0];
+}
+
+async function getKeywordData(keyword) {
+  const data = await dfsReq('/v3/keywords_data/google_ads/search_volume/live', [{
+    keywords: [keyword], language_code: 'fr', location_code: 2250
+  }]);
+  if (!data || !data.tasks || !data.tasks[0].result) return null;
+  return data.tasks[0].result[0];
+}
+
+// ─── GSC API ──────────────────────────────────────────────────
+async function getGscData(keyword) {
+  if (!isGoogleTokenValid()) return null;
+  const siteUrl = S.get('gsc_site_url');
+  if (!siteUrl) return null;
+  const token = S.get('google_access_token');
+  const end = new Date().toISOString().split('T')[0];
+  const start = new Date(Date.now() - 90*24*60*60*1000).toISOString().split('T')[0];
+  try {
+    const r = await fetch('https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startDate: start, endDate: end,
+        dimensions: ['query'],
+        dimensionFilterGroups: [{ filters: [{ dimension: 'query', operator: 'contains', expression: keyword.split(' ')[0] }] }],
+        rowLimit: 20
+      })
+    });
+    return r.json();
+  } catch { return null; }
+}
+
+// ─── ANTHROPIC API ────────────────────────────────────────────
+async function callAnthropic(systemPrompt, userMessage, maxTokens=8000) {
+  const key = S.get('anthropic_key');
+  if (!key) throw new Error('Clé Anthropic non configurée');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-5',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    })
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'Erreur Anthropic'); }
+  const d = await r.json();
+  return d.content[0].text;
+}
+
+// ─── OBSIDIAN EXPORT ──────────────────────────────────────────
+async function exportToObsidian(articles, pages, blogs) {
+  const files = [];
+  const domain = S.get('site_domain') || 'mineralfrance.com';
+
+  // Index général
+  let indexMd = '# Cocon Sémantique — Minéral France\n\n';
+  indexMd += '> Exporté le ' + new Date().toLocaleDateString('fr-FR') + '\n\n';
+  indexMd += '## Pierres\n\n';
+
+  pages.forEach(page => {
+    const blogForPage = blogs.find(b => b.handle.includes(page.handle.split('-')[0]));
+    indexMd += '- [[' + page.title + ']]\n';
+    files.push({
+      name: page.handle + '.md',
+      content: generatePageMd(page, articles, domain)
+    });
+  });
+
+  files.unshift({ name: 'INDEX.md', content: indexMd });
+
+  // Articles
+  articles.forEach(a => {
+    files.push({
+      name: (a.handle || 'article-' + a.id) + '.md',
+      content: generateArticleMd(a, pages, domain)
+    });
+  });
+
+  // Génère le ZIP via téléchargement multiple ou JSZip si dispo
+  downloadObsidianZip(files);
+}
+
+function generatePageMd(page, articles, domain) {
+  let md = '---\ntitle: ' + page.title + '\ntype: page-mere\nurl: https://' + domain + '/pages/' + page.handle + '\n---\n\n';
+  md += '# ' + page.title + '\n\n';
+  md += '**URL** : https://' + domain + '/pages/' + page.handle + '\n\n';
+  md += '## Articles satellites\n\n';
+  const related = articles.filter(a => {
+    const blogHandle = a.blog_handle || '';
+    return blogHandle.includes(page.handle.replace(/-/g, '').slice(0, 5));
+  });
+  related.forEach(a => { md += '- [[' + (a.handle || a.title) + ']] — ' + (a.published_at ? 'Publié' : 'Brouillon') + '\n'; });
+  return md;
+}
+
+function generateArticleMd(a, pages, domain) {
+  let md = '---\ntitle: ' + (a.title || '').replace(/:/g, '-') + '\nstatut: ' + (a.published_at ? 'publié' : 'brouillon') + '\ndate: ' + (a.published_at || a.created_at || '') + '\n---\n\n';
+  md += '# ' + a.title + '\n\n';
+  md += '**URL** : https://' + domain + '/blogs/' + (a.blog_handle || 'blog') + '/' + a.handle + '\n\n';
+  if (a.body_html) {
+    const text = a.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+    md += '## Extrait\n\n' + text + '...\n\n';
+  }
+  return md;
+}
+
+function downloadObsidianZip(files) {
+  // Télécharge chaque fichier individuellement dans un dossier
+  // Pour un vrai ZIP on utiliserait JSZip — ici on télécharge un fichier récapitulatif
+  let allContent = '';
+  files.forEach(f => { allContent += '\n\n=== ' + f.name + ' ===\n\n' + f.content; });
+  const blob = new Blob([allContent], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'cocon-obsidian-export.md'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Export Obsidian téléchargé', 'ok');
+}
+
+// ─── MODULE CRÉER UN ARTICLE ──────────────────────────────────
+function rCreate() {
+  const pg = document.getElementById('p-create');
+  const hasShopify = S.has();
+  const hasAnthropic = !!S.get('anthropic_key');
+
+  pg.innerHTML = `
+    <div class="ph">
+      <div class="pt">Créer un article</div>
+      <div class="ps">Génération assistée par IA avec analyse SERP et données GSC</div>
+    </div>
+    ${!hasShopify ? '<div class="al al-w">⚠ Shopify non connecté — <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'connections\')">Connexions →</span></div>' : ''}
+    ${!hasAnthropic ? '<div class="al al-w">⚠ Clé Anthropic manquante — <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'connections\')">Connexions →</span></div>' : ''}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;height:calc(100vh - 200px)">
+
+      <!-- Panneau gauche : chat -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:300px" id="chat-messages">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">◈</div>
+            <div style="background:var(--bg2);border-radius:var(--r2);padding:12px 14px;font-size:13.5px;line-height:1.6;max-width:90%">
+              Bonjour ! Je suis prêt à créer votre prochain article.<br><br>
+              Dites-moi simplement sur quoi vous souhaitez écrire — par exemple <em>"un article sur les bienfaits de l'améthyste pour le sommeil"</em> ou <em>"quels sujets me manquent sur la labradorite ?"</em>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <textarea class="inp" id="chat-input" rows="2"
+            placeholder="Ex: je veux un article sur l'améthyste et le stress..."
+            style="resize:none;flex:1;font-size:13.5px"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+          <button class="btn bp" onclick="sendChat()" style="align-self:flex-end;padding:10px 16px">→</button>
+        </div>
+      </div>
+
+      <!-- Panneau droit : brief + résultat -->
+      <div style="display:flex;flex-direction:column;gap:12px;overflow-y:auto" id="create-right">
+        <div class="card" style="text-align:center;padding:40px;color:var(--t3)">
+          <div style="font-size:28px;margin-bottom:12px;opacity:.3">✦</div>
+          <div style="font-size:13.5px">Le brief et l'article apparaîtront ici</div>
+        </div>
+      </div>
+    </div>`;
+
+  // Init état du chat
+  window.chatState = {
+    step: 'idle', // idle → analyzing → brief → writing → done
+    keyword: null,
+    blog: null,
+    blogId: null,
+    articles: [],
+    products: [],
+    collections: [],
+    parentPage: null,
+    prevArticle: null,
+    serpData: null,
+    gscData: null,
+    brief: null,
+    article: null
+  };
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addChatMessage(msg, 'user');
+
+  const state = window.chatState;
+
+  if (state.step === 'idle') {
+    await analyzeRequest(msg);
+  } else if (state.step === 'brief_ready') {
+    if (msg.toLowerCase().includes('oui') || msg.toLowerCase().includes('ok') || msg.toLowerCase().includes('valide') || msg.toLowerCase().includes('go')) {
+      await generateArticle();
+    } else {
+      addChatMessage('Brief modifié. Tapez <strong>ok</strong> quand vous êtes prêt à rédiger.', 'bot');
+    }
+  } else if (state.step === 'done') {
+    addChatMessage('L'article a été généré. Vous pouvez démarrer une nouvelle création en décrivant votre prochain sujet.', 'bot');
+    window.chatState.step = 'idle';
+    await analyzeRequest(msg);
+  }
+}
+
+function addChatMessage(text, role) {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  const isBot = role === 'bot';
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:10px;align-items:flex-start';
+  div.innerHTML = (isBot ? '<div style="width:28px;height:28px;border-radius:50%;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">◈</div>' : '<div style="width:28px;height:28px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">Vous</div>')
+    + '<div style="background:' + (isBot ? 'var(--bg2)' : 'var(--ac2)') + ';border-radius:var(--r2);padding:12px 14px;font-size:13.5px;line-height:1.6;max-width:90%">' + text + '</div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addChatSpinner(id) {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.cssText = 'display:flex;gap:10px;align-items:flex-start';
+  div.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">◈</div>'
+    + '<div style="background:var(--bg2);border-radius:var(--r2);padding:12px 14px;font-size:13.5px">' + sp() + ' Analyse en cours…</div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeChatSpinner(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+async function analyzeRequest(msg) {
+  const state = window.chatState;
+  state.step = 'analyzing';
+  addChatSpinner('spin-analyze');
+
+  try {
+    // 1. Charge les blogs Shopify
+    const blogsData = await sReq('/admin/api/2024-01/blogs.json');
+    const blogs = blogsData.blogs || [];
+
+    // 2. Charge les produits et collections
+    const [prodsData, collsData, pagesData] = await Promise.all([
+      sReq('/admin/api/2024-01/products.json?limit=50&fields=id,title,handle,images'),
+      sReq('/admin/api/2024-01/custom_collections.json?limit=50&fields=id,title,handle'),
+      sReq('/admin/api/2024-01/pages.json?limit=100&fields=id,title,handle')
+    ]);
+
+    state.products = prodsData.products || [];
+    state.collections = collsData.custom_collections || [];
+    const pages = pagesData.pages || [];
+
+    // 3. Demande à l'IA d'analyser la requête et choisir le blog/mot-clé
+    const blogList = blogs.map(b => b.title + ' (handle: ' + b.handle + ', id: ' + b.id + ')').join('\n');
+    const analysis = await callAnthropic(
+      'Tu es un assistant SEO. Réponds UNIQUEMENT en JSON valide, aucun texte avant ou après.',
+      'Message utilisateur: "' + msg + '"\n\nBlogs disponibles:\n' + blogList + '\n\nRéponds en JSON: {"keyword": "mot-clé principal déduit", "blog_id": "id du blog le plus pertinent", "blog_title": "titre du blog", "blog_handle": "handle du blog", "suggestion": "explication courte de ton choix"}',
+      500
+    );
+
+    let parsed;
+    try { parsed = JSON.parse(analysis.replace(/```json|```/g, '').trim()); }
+    catch { throw new Error('Réponse IA invalide'); }
+
+    state.keyword = parsed.keyword;
+    state.blog = parsed.blog_title;
+    state.blogId = parsed.blog_id;
+
+    // 4. Charge les articles du blog identifié
+    const arts = await getAllArticles(parsed.blog_id);
+    arts.sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+    state.articles = arts;
+    state.prevArticle = arts.find(a => a.published_at) || null;
+
+    // 5. Trouve la page mère
+    const blogHandle = parsed.blog_handle || '';
+    const stoneName = blogHandle.replace('guide-de-la', '').replace('guide-du', '').replace('guide-de-l', '').replace('guide-des', '').replace(/-/g, '');
+    state.parentPage = pages.find(p => p.handle.replace(/-/g, '').includes(stoneName.slice(0, 5))) || null;
+
+    // 6. DataForSEO
+    const serpResult = await getSerp(parsed.keyword);
+    const kwResult = await getKeywordData(parsed.keyword);
+    state.serpData = { serp: serpResult, kw: kwResult };
+
+    // 7. GSC
+    const gscResult = await getGscData(parsed.keyword);
+    state.gscData = gscResult;
+
+    removeChatSpinner('spin-analyze');
+
+    // 8. Affiche les recommandations
+    const existingTitles = arts.map(a => '• ' + a.title).slice(0, 8).join('<br>');
+    const volume = kwResult?.search_volume || 'N/A';
+    const kd = serpResult?.items_count || 'N/A';
+    const avgLen = serpResult ? Math.round(serpResult.items?.filter(i => i.type === 'organic').slice(0, 3).reduce((s, i) => s + (i.extended_snippet?.length || 1200), 0) / 3) : 1400;
+
+    addChatMessage(
+      'J'ai analysé votre demande. Voici ce que je propose :<br><br>' +
+      '<strong>Mot-clé cible :</strong> ' + parsed.keyword + '<br>' +
+      '<strong>Blog :</strong> ' + parsed.blog_title + '<br>' +
+      '<strong>Volume estimé :</strong> ' + volume + ' recherches/mois<br>' +
+      '<strong>Articles existants :</strong> ' + arts.length + '<br>' +
+      (existingTitles ? '<br>Articles déjà publiés :<br>' + existingTitles + '<br><br>' : '') +
+      '<strong>Article précédent détecté :</strong> ' + (state.prevArticle ? state.prevArticle.title : 'Aucun') + '<br>' +
+      '<strong>Longueur cible recommandée :</strong> ~' + avgLen + ' mots<br><br>' +
+      'Voulez-vous que je génère le brief complet ? Tapez <strong>oui</strong> ou précisez vos directives.',
+      'bot'
+    );
+
+    state.step = 'brief_ready';
+    state.targetLength = avgLen;
+
+  } catch (e) {
+    removeChatSpinner('spin-analyze');
+    addChatMessage('Erreur lors de l'analyse : ' + e.message, 'bot');
+    state.step = 'idle';
+  }
+}
+
+async function generateArticle() {
+  const state = window.chatState;
+  state.step = 'writing';
+  addChatMessage('Parfait ! Je rédige l'article complet maintenant. Cela peut prendre 30 à 60 secondes…', 'bot');
+  addChatSpinner('spin-write');
+
+  try {
+    const systemPrompt = S.get('prompt_create') || '';
+
+    // Choisit le produit et la collection les plus pertinents
+    const keyword = state.keyword.toLowerCase();
+    const stoneName = (state.blog || '').toLowerCase();
+    const product = state.products.find(p => p.title.toLowerCase().includes(stoneName.split(' ')[0]) || p.handle.includes(stoneName.split(' ')[0])) || state.products[0];
+    const collection = state.collections.find(c => c.handle.includes(stoneName.split(' ')[0])) || state.collections[0];
+    const domain = S.get('site_domain') || 'mineralfrance.com';
+
+    // Construit le message utilisateur avec toutes les données
+    const serpSummary = state.serpData?.serp ? 'Top résultats SERP disponibles, longueur moyenne ~' + state.targetLength + ' mots' : 'Données SERP non disponibles';
+    const gscSummary = state.gscData?.rows ? 'Positions GSC : ' + state.gscData.rows.slice(0, 3).map(r => r.keys[0] + ' pos.' + Math.round(r.position)).join(', ') : 'Données GSC non disponibles';
+
+    const userMessage = `Rédige un article optimisé SEO avec les données suivantes :
+
+MOT-CLÉ CIBLE : ${state.keyword}
+BLOG : ${state.blog}
+LONGUEUR CIBLE : ${state.targetLength} mots
+
+ANALYSE SERP : ${serpSummary}
+DONNÉES GSC : ${gscSummary}
+
+MAILLAGE INTERNE :
+- Page mère : https://${domain}/pages/${state.parentPage?.handle || 'index-des-pierres-proprietes-et-vertus'} — ${state.parentPage?.title || 'Index des pierres'}
+- Article précédent : https://${domain}/blogs/${state.blogId}/${state.prevArticle?.handle || ''} — ${state.prevArticle?.title || 'Premier article du blog'}
+- Produit : ${product ? 'https://' + domain + '/products/' + product.handle + ' — ' + product.title : 'Non disponible'}
+- Collection : ${collection ? 'https://' + domain + '/collections/' + collection.handle + ' — ' + collection.title : 'Non disponible'}
+
+Respecte scrupuleusement le format de réponse défini dans le prompt système (---ARTICLE--- / ---FICHE_TECHNIQUE--- / ---CHECKLIST---).`;
+
+    const result = await callAnthropic(systemPrompt, userMessage, 8000);
+
+    removeChatSpinner('spin-write');
+
+    // Parse le résultat
+    const articleMatch = result.match(/---ARTICLE---([\s\S]*?)---FICHE_TECHNIQUE---/);
+    const ficheMatch = result.match(/---FICHE_TECHNIQUE---([\s\S]*?)---CHECKLIST---/);
+    const checklistMatch = result.match(/---CHECKLIST---([\s\S]*?)$/);
+
+    const articleHtml = articleMatch ? articleMatch[1].trim() : result;
+    const fiche = ficheMatch ? ficheMatch[1].trim() : '';
+    const checklist = checklistMatch ? checklistMatch[1].trim() : '';
+
+    state.article = articleHtml;
+    state.step = 'done';
+
+    // Affiche dans le panneau droit
+    displayArticleResult(articleHtml, fiche, checklist, state);
+
+    addChatMessage(
+      'Article généré avec succès ! ✓<br><br>' +
+      'Vous pouvez le <strong>prévisualiser</strong>, consulter la <strong>fiche technique</strong> et la <strong>checklist</strong> dans le panneau de droite.<br><br>' +
+      'Cliquez sur <strong>Pousser en brouillon</strong> quand vous êtes satisfait.',
+      'bot'
+    );
+
+    // Ajoute à l'historique
+    S.addHist({ type: 'create', title: state.keyword, blog: state.blog });
+
+  } catch (e) {
+    removeChatSpinner('spin-write');
+    addChatMessage('Erreur lors de la génération : ' + e.message, 'bot');
+    state.step = 'brief_ready';
+  }
+}
+
+function displayArticleResult(html, fiche, checklist, state) {
+  const right = document.getElementById('create-right');
+  if (!right) return;
+
+  right.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+      <button class="btn bp" onclick="showTab('tab-article')">Article HTML</button>
+      <button class="btn bs" onclick="showTab('tab-fiche')">Fiche technique</button>
+      <button class="btn bs" onclick="showTab('tab-checklist')">Checklist</button>
+      <button class="btn bp" style="margin-left:auto" onclick="pushDraft()">↑ Pousser en brouillon</button>
+    </div>
+
+    <div id="tab-article" class="card" style="overflow-y:auto;max-height:60vh">
+      <div class="ct">Article généré — HTML</div>
+      <textarea style="width:100%;height:400px;font-family:var(--mono);font-size:12px;border:none;outline:none;resize:vertical;color:var(--t1);background:transparent;line-height:1.6"
+        id="article-html-output">${html.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+    </div>
+
+    <div id="tab-fiche" class="card" style="display:none;overflow-y:auto;max-height:60vh;white-space:pre-wrap;font-size:13px;line-height:1.7;font-family:var(--mono)">
+      <div class="ct">Fiche technique</div>
+      ${fiche || 'Aucune fiche générée'}
+    </div>
+
+    <div id="tab-checklist" class="card" style="display:none;overflow-y:auto;max-height:60vh;white-space:pre-wrap;font-size:13px;line-height:1.9">
+      <div class="ct">Checklist auto-évaluation</div>
+      ${checklist.replace(/\[✅\]/g,'<span style="color:var(--gn)">✅</span>').replace(/\[❌\]/g,'<span style="color:var(--rd)">❌</span>') || 'Aucune checklist générée'}
+    </div>`;
+}
+
+function showTab(id) {
+  ['tab-article','tab-fiche','tab-checklist'].forEach(t => {
+    const el = document.getElementById(t);
+    if (el) el.style.display = t === id ? 'block' : 'none';
+  });
+}
+
+async function pushDraft() {
+  const state = window.chatState;
+  if (!state.article) { toast('Aucun article à pousser', 'err'); return; }
+  if (!S.has()) { toast('Shopify non connecté', 'err'); return; }
+
+  try {
+    // Récupère le vrai HTML depuis le textarea (au cas où l'utilisateur l'aurait modifié)
+    const htmlOutput = document.getElementById('article-html-output');
+    const articleHtml = htmlOutput ? htmlOutput.value.replace(/&lt;/g,'<').replace(/&gt;/g,'>') : state.article;
+
+    const domain = S.get('site_domain') || 'mineralfrance.com';
+    const result = await sReq('/admin/api/2024-01/blogs/' + state.blogId + '/articles.json', 'POST', {
+      article: {
+        title: state.keyword,
+        body_html: articleHtml,
+        author: 'Litho SEO Cockpit',
+        published: false,
+        tags: state.blog
+      }
+    });
+
+    if (result.article) {
+      toast('Article poussé en brouillon ✓', 'ok');
+      addChatMessage('Article poussé en brouillon dans Shopify ! Vous pouvez le retrouver dans <strong>Articles → ' + state.blog + '</strong>.', 'bot');
+      S.addHist({ type: 'create', title: result.article.title, blog: state.blog });
+    } else {
+      throw new Error('Réponse Shopify invalide');
+    }
+  } catch (e) {
+    toast('Erreur push Shopify : ' + e.message, 'err');
+  }
+}
+
+// ─── MODULE COCON ─────────────────────────────────────────────
+async function rCocon() {
+  const pg = document.getElementById('p-cocon');
+  pg.innerHTML = `
+    <div class="ph">
+      <div class="pt">Cocon sémantique</div>
+      <div class="ps">Structure de votre contenu par pierre + export Obsidian</div>
+    </div>
+    <div id="cocon-body">
+      <div style="display:flex;align-items:center;gap:10px;color:var(--t2)">${sp()} Chargement du cocon…</div>
+    </div>`;
+
+  if (!S.has()) {
+    document.getElementById('cocon-body').innerHTML = '<div class="al al-i">◈ &nbsp;Shopify non connecté — <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'connections\')">Connexions →</span></div>';
+    return;
+  }
+
+  try {
+    const [blogsData, pagesData] = await Promise.all([
+      sReq('/admin/api/2024-01/blogs.json'),
+      sReq('/admin/api/2024-01/pages.json?limit=100&fields=id,title,handle')
+    ]);
+
+    const blogs = blogsData.blogs || [];
+    const pages = pagesData.pages || [];
+
+    // Charge les articles de tous les blogs en parallèle
+    const allArticles = [];
+    await Promise.all(blogs.map(async b => {
+      const arts = await getAllArticles(b.id);
+      arts.forEach(a => { a.blog_handle = b.handle; a.blog_title = b.title; a.blog_id = b.id; });
+      allArticles.push(...arts);
+    }));
+
+    renderCoconView(blogs, pages, allArticles);
+
+  } catch (e) {
+    document.getElementById('cocon-body').innerHTML = '<div class="al al-w">⚠ ' + e.message + '</div>';
+  }
+}
+
+function renderCoconView(blogs, pages, articles) {
+  const body = document.getElementById('cocon-body');
+  const domain = S.get('site_domain') || 'mineralfrance.com';
+
+  // Page index
+  const indexPage = pages.find(p => p.handle.includes('index'));
+
+  // Associe chaque blog à sa page mère
+  const cocon = blogs.map(blog => {
+    const blogArts = articles.filter(a => a.blog_id === blog.id);
+    blogArts.sort((a, b) => new Date(a.published_at || a.created_at) - new Date(b.published_at || b.created_at));
+
+    // Trouve la page mère par correspondance de handle
+    const cleanHandle = blog.handle
+      .replace('guide-de-la-','').replace('guide-du-','').replace('guide-de-l-','')
+      .replace('guide-de-','').replace('guide-des-','').replace('guide-','')
+      .replace(/^-/,'').replace(/-$/,'');
+    const parentPage = 
+      pages.find(p => p.handle === cleanHandle) ||
+      pages.find(p => cleanHandle.length > 3 && p.handle.startsWith(cleanHandle.slice(0,6))) ||
+      pages.find(p => cleanHandle.length > 3 && p.handle.includes(cleanHandle.slice(0,5))) ||
+      pages.find(p => {
+        const blogWords = blog.title.toLowerCase().replace(/guide (de |du |de la |de l'|des )?/gi,'').trim().split(' ');
+        return blogWords.some(w => w.length > 3 && p.handle.includes(w));
+      });
+
+    return { blog, articles: blogArts, parentPage };
+  });
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+      <div>
+        ${indexPage ? '<span class="bge b-purple" style="font-size:13px;padding:4px 12px">🌐 Index : <a href="https://' + domain + '/pages/' + indexPage.handle + '" target="_blank" style="color:inherit">' + indexPage.title + '</a></span>' : ''}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bs" onclick="exportObsidianFromCocon()">⬟ Exporter vers Obsidian</button>
+      </div>
+    </div>
+
+    ${cocon.map(({blog, articles: arts, parentPage}) => `
+      <div class="card" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div style="font-size:15px;font-weight:600">${blog.title}</div>
+            ${parentPage
+              ? '<div style="font-size:12.5px;color:var(--t2);margin-top:2px">Page mère : <a href="https://' + domain + '/pages/' + parentPage.handle + '" target="_blank" style="color:var(--ac)">' + parentPage.title + '</a></div>'
+              : '<div style="font-size:12.5px;color:var(--or);margin-top:2px">⚠ Page mère non détectée</div>'}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="bge b-green">${arts.filter(a => a.published_at).length} publiés</span>
+            <span class="bge b-gray">${arts.filter(a => !a.published_at).length} brouillons</span>
+            <span class="bge b-purple">${arts.length} total</span>
+          </div>
+        </div>
+
+        ${arts.length === 0
+          ? '<div style="color:var(--t3);font-size:13px;text-align:center;padding:16px">Aucun article — <span style="color:var(--ac);cursor:pointer" onclick="nav(\'create\')">Créer le premier →</span></div>'
+          : '<div style="display:flex;flex-direction:column;gap:4px">' +
+            arts.map((a, i) => `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--r);font-size:13px">
+                <span style="color:var(--t3);font-size:11px;width:20px;text-align:center">${i+1}</span>
+                <span style="font-weight:500;flex:1">${tr(a.title, 55)}</span>
+                <span class="bge ${a.published_at ? 'b-green' : 'b-gray'}" style="font-size:11px">${a.published_at ? 'Publié' : 'Brouillon'}</span>
+                <span style="color:var(--t3);font-size:12px">${wc(a.body_html || '')} mots</span>
+              </div>`).join('') +
+            '</div>'}
+      </div>
+    `).join('')}`;
+
+  // Stocke pour l'export
+  window._coconData = { blogs, pages, articles };
+}
+
+async function exportObsidianFromCocon() {
+  const data = window._coconData;
+  if (!data) { toast('Chargez d'abord le cocon', 'err'); return; }
+  toast('Génération de l'export Obsidian…');
+  await exportToObsidian(data.articles, data.pages, data.blogs);
 }
 
 document.querySelectorAll('.ni[data-p]').forEach(el=>el.addEventListener('click',()=>nav(el.dataset.p)));
