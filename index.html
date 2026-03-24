@@ -123,6 +123,7 @@ td{padding:10px 14px;font-size:13.5px;vertical-align:middle}
 </div>
 <div id="tc"></div>
 <script>
+const SHOPIFY_OAUTH_CLIENT_ID='da4180870578d677f280e3f34bc54cf9';
 const GOOGLE_DEFAULTS={
   client_id:'408254404499-s31711eu04skqog3s02ik2qous3c43v9.apps.googleusercontent.com',
   client_secret:'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'
@@ -184,11 +185,39 @@ async function getAllArticles(blogId){
   return all;
 }
 
+function handleShopifyCallback(){
+  const hash=window.location.hash;
+  if(!hash.includes('shopify_token'))return;
+  const params=new URLSearchParams(hash.slice(1));
+  const token=params.get('shopify_token');
+  const shop=params.get('shop');
+  if(token&&shop){
+    S.set('shopify_token',token);
+    S.set('shopify_domain',shop);
+    window.history.replaceState(null,'',window.location.pathname);
+    toast('Shopify connecté avec succès','ok');
+    setDot('ok');
+    if(document.getElementById('p-connections').classList.contains('on'))rConn();
+  }
+}
 function isGoogleTokenValid(){
   const token=S.get('google_access_token'),expiry=S.get('google_token_expiry');
   if(!token)return false;
   if(expiry&&Date.now()>expiry){S.set('google_access_token',null);return false;}
   return true;
+}
+function shopifyLogin(){
+  const clientId=SHOPIFY_OAUTH_CLIENT_ID;
+  const shop=S.get('shopify_domain')||prompt('Entre ton domaine Shopify (ex: mineralfrance.myshopify.com)');
+  if(!shop)return;
+  S.set('shopify_domain',shop);
+  const proxyUrl=S.get('proxy_url');
+  if(!proxyUrl){toast('Configure d abord l URL du proxy Cloudflare','err');return;}
+  const redirectUri=proxyUrl+'/oauth/callback';
+  const scopes='read_content,write_content,read_products,read_pages,write_pages,read_blogs,write_blogs,read_themes,read_metafields,write_metafields,read_online_store_pages,write_online_store_pages,write_theme_code,write_themes,read_files,write_files,read_products,write_products';
+  const state=Math.random().toString(36).slice(2);
+  S.set('shopify_oauth_state',state);
+  window.location.href='https://'+shop+'/admin/oauth/authorize?client_id='+clientId+'&scope='+scopes+'&redirect_uri='+encodeURIComponent(redirectUri)+'&state='+state;
 }
 function googleLogin(){
   const clientId=S.get('google_client_id')||GOOGLE_DEFAULTS.client_id;
@@ -330,7 +359,7 @@ function rConn(){
       '<div class="fg"><label class="fl">Domaine Shopify</label><input class="inp" id="cf-sd" type="text" placeholder="monstore.myshopify.com" value="'+(S.get('shopify_domain')||'')+'"></div>'
       +'<div class="fg"><label class="fl">Token Admin API</label><input class="inp" id="cf-st" type="password" placeholder="shpat_xxx" value="'+(S.get('shopify_token')||'')+'"><div class="fh">Apps → Développer des apps → Créer une app → Admin API access token</div></div>'
       +'<div class="fg"><label class="fl">URL proxy Cloudflare Worker</label><input class="inp" id="cf-pu" type="text" placeholder="https://litho-proxy.xxx.workers.dev" value="'+(S.get('proxy_url')||'')+'"><div class="fh">Voir cloudflare-worker.js — à déployer sur workers.cloudflare.com</div></div>'
-      +'<div class="tw"><button class="btn bp" id="save-shopify">Enregistrer</button><button class="btn bg" id="test-shopify">Tester la connexion</button><span id="res-shopify" style="font-size:13px;color:var(--t2)"></span></div>')
+      +'<div class="tw"><button class="btn bp" id="save-shopify">Enregistrer</button><button class="btn bg" id="test-shopify">Tester la connexion</button><button class="btn bg" onclick="shopifyLogin()" style="color:var(--ac);border-color:var(--ac)">⚡ OAuth Shopify</button><span id="res-shopify" style="font-size:13px;color:var(--t2)"></span></div>')
 
     +connCard('anthropic','◈','Anthropic','Génération et réécriture d\'articles',!!S.get('anthropic_key'),
       '<div class="fg"><label class="fl">Clé API Anthropic</label><input class="inp" id="cf-ak" type="password" placeholder="sk-ant-xxx" value="'+(S.get('anthropic_key')||'')+'"></div>'
@@ -475,6 +504,7 @@ function rPH(id,title,sub,icon){
 
 document.querySelectorAll('.ni[data-p]').forEach(el=>el.addEventListener('click',()=>nav(el.dataset.p)));
 handleGoogleCallback();
+handleShopifyCallback();
 if(S.has()){sReq('/admin/api/2024-01/shop.json').then(()=>setDot('ok')).catch(()=>setDot('err'));}
 nav('dashboard');
 </script>
