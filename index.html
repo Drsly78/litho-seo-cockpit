@@ -747,7 +747,7 @@ async function sendChat() {
       addChatMessage('Brief modifié. Tapez <strong>ok</strong> quand vous êtes prêt à rédiger.', 'bot');
     }
   } else if (state.step === 'done') {
-    addChatMessage('L\'article a été généré. Vous pouvez démarrer une nouvelle création en décrivant votre prochain sujet.', 'bot');
+    addChatMessage("L'article a été généré. Vous pouvez démarrer une nouvelle création en décrivant votre prochain sujet.", "bot");
     window.chatState.step = 'idle';
     await analyzeRequest(msg);
   }
