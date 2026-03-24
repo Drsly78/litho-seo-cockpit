@@ -171,17 +171,31 @@ function nav(p){
 }
 
 async function sReq(path,method='GET',body=null){
-  const proxy=S.get('proxy_url'),domain=S.get('shopify_domain'),token=S.get('shopify_token');
+  const proxy=S.get('proxy_url'),domain=S.get('shopify_domain'),token=S.get('shopify_token')||S.get('shopify_access_token');
   if(!proxy||!domain||!token)throw new Error('Shopify non configuré — voir Connexions');
   const pl={domain,token,path,method};if(body)pl.body=body;
   const r=await fetch(proxy,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(pl)});
   if(!r.ok){const t=await r.text();throw new Error('Proxy '+r.status+': '+t)}
-  return r.json();
+  const data=await r.json();
+  // Récupère le header Link pour la pagination si présent
+  const linkHeader=r.headers.get('x-shopify-link')||r.headers.get('link')||'';
+  if(linkHeader)data.link=linkHeader;
+  return data;
 }
 async function getAllArticles(blogId){
-  let all=[],p=1,bt;
-  do{const d=await sReq('/admin/api/2024-01/blogs/'+blogId+'/articles.json?limit=50&page='+p);
-    bt=d.articles||[];all=all.concat(bt);p++;}while(bt.length===50);
+  let all=[],url='/admin/api/2024-01/blogs/'+blogId+'/articles.json?limit=50&fields=id,title,handle,published_at,updated_at,body_html,author,tags';
+  while(url){
+    const d=await sReq(url);
+    const arts=d.articles||[];all=all.concat(arts);
+    // Pagination par curseur
+    const link=d.link||'';
+    const next=link.match(/<([^>]+)>;\s*rel="next"/);
+    if(next&&arts.length===50){
+      // Extrait page_info du lien
+      const pi=next[1].match(/page_info=([^&>]+)/);
+      url=pi?'/admin/api/2024-01/blogs/'+blogId+'/articles.json?limit=50&page_info='+pi[1]:null;
+    }else{url=null;}
+  }
   return all;
 }
 
