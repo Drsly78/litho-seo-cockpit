@@ -1094,6 +1094,7 @@ function renderCoconView(blogs, pages, articles) {
     // Nettoie le handle du blog pour extraire le nom de la pierre
     const cleanHandle = blog.handle
       .replace('guide-de-lamethyste','amethyste')
+      .replace(/guide-de-loeil/,'oeil')
       .replace(/guide-de-l[ae]?-?/,'')
       .replace(/guide-du-/,'')
       .replace(/guide-des-/,'')
@@ -1101,18 +1102,18 @@ function renderCoconView(blogs, pages, articles) {
       .replace(/guide-/,'')
       .replace(/^l-/,'').replace(/^la-/,'').replace(/^le-/,'').replace(/^les-/,'')
       .replace(/^-/,'').replace(/-$/,'');
-    // Cherche la page mère avec plusieurs stratégies
-    const parentPage = 
-      pages.find(p => p.handle === cleanHandle) ||
-      pages.find(p => cleanHandle.length > 4 && p.handle === cleanHandle.replace(/s$/,'')) ||
-      pages.find(p => cleanHandle.length > 4 && cleanHandle.startsWith(p.handle.slice(0,5))) ||
-      pages.find(p => cleanHandle.length > 4 && p.handle.startsWith(cleanHandle.slice(0,5))) ||
-      pages.find(p => {
-        const blogWords = blog.title.toLowerCase()
-          .replace(/guide\s+(de\s+l[ae]?\s+|du\s+|de\s+|des\s+)?/gi,'').trim()
-          .split(/[\s-]+/).filter(w => w.length > 3);
-        return blogWords.some(w => p.handle.includes(w) || p.handle === w);
-      });
+
+    // Les blogs généralistes (pierres-naturelles, chakras...) n'ont pas de page mère
+    const isGeneralist = !isBlogPierre(blog);
+    
+    // Cherche la page mère UNIQUEMENT dans la liste exacte des 36 pierres
+    const parentPage = isGeneralist ? null : (
+      PIERRES_REF.includes(cleanHandle) && pages.find(p => p.handle === cleanHandle) ||
+      pages.find(p => PIERRES_REF.includes(p.handle) && p.handle === cleanHandle) ||
+      pages.find(p => PIERRES_REF.includes(p.handle) && cleanHandle.length > 5 && p.handle === cleanHandle.replace(/-/g,'').slice(0,8)) ||
+      pages.find(p => PIERRES_REF.includes(p.handle) && p.handle.startsWith(cleanHandle.slice(0,6)) && cleanHandle.length > 5) ||
+      null
+    );
 
     return { blog, articles: blogArts, parentPage };
   });
@@ -1144,9 +1145,9 @@ function renderCoconView(blogs, pages, articles) {
         </div>
 
         <div>
-          <button class="btn bg" style="font-size:12.5px;margin-bottom:8px;width:100%;text-align:left"
-            onclick="const nx=this.nextElementSibling;const open=nx.style.display!=='flex';nx.style.display=open?'flex':'none';this.innerHTML=open?'▼ Masquer les articles (${arts.length})':'▶ Voir les articles (${arts.length})'">
-            ▶ Voir les articles (${arts.length})
+          <button style="width:100%;padding:8px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg3);font-size:13px;font-weight:500;color:var(--t1);cursor:pointer;text-align:left;margin-bottom:8px;font-family:var(--font)"
+            onclick="const nx=this.nextElementSibling;const open=nx.style.display!=='flex';nx.style.display=open?'flex':'none';this.innerHTML=open?'▼ &nbsp;Masquer les articles (${arts.length})':'▶ &nbsp;Voir les articles (${arts.length})'">
+            ▶ &nbsp;Voir les articles (${arts.length})
           </button>
           <div style="display:none;flex-direction:column;gap:4px">
             ${arts.length === 0
