@@ -265,11 +265,12 @@ function rDash(){
     +'<div class="sc"><div class="sv" id="sa">—</div><div class="sl">Articles total</div></div>'
     +'<div class="sc"><div class="sv" id="sp2">—</div><div class="sl">Publiés</div></div>'
     +'<div class="sc"><div class="sv" id="sb">—</div><div class="sl">Blogs / pierres</div></div>'
+    +'<div class="sc"><div class="sv" id="spm">—</div><div class="sl">Pages mères</div></div>'
     +'<div class="sc"><div class="sv">'+S.hist().length+'</div><div class="sl">Générés via cockpit</div></div>'
     +'</div>'
     +'<div class="card"><div class="ct">Statut des connexions</div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">'
-    +[['Shopify',cfg],['Anthropic',!!S.get('anthropic_key')],['Google',gOk],['DataForSEO',!!S.get('dataforseo_login')]]
+    +[['Shopify',cfg],['Anthropic',!!S.get('anthropic_key')],['Google',gOk],['DataForSEO',!!S.get('dataforseo_login')],['Obsidian',!!S.get('obsidian_api_key')]]
       .map(([n,ok])=>'<div style="display:flex;align-items:center;gap:8px">'
         +'<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;background:'+(ok?'var(--gn)':'var(--bd)')+'"></span>'
         +'<div><div style="font-size:13px;font-weight:500">'+n+'</div>'
@@ -291,6 +292,9 @@ async function lDash(){
     let tot=0,pub=0;
     await Promise.all(blogs.map(async b=>{try{const a=await getAllArticles(b.id);tot+=a.length;pub+=a.filter(x=>x.published_at).length;}catch{}}));
     document.getElementById('sa').textContent=tot;document.getElementById('sp2').textContent=pub;
+    try{const pd=await sReq('/admin/api/2024-01/pages.json?limit=100&fields=id,title,handle');
+      const sp=(pd.pages||[]).filter(p=>!p.handle.includes('index')&&!p.handle.includes('qui-sommes')&&!p.handle.includes('contact')&&!p.handle.includes('politique')&&!p.handle.includes('livraison'));
+      const pmEl=document.getElementById('spm');if(pmEl)pmEl.textContent=sp.length;}catch(_){}
   }catch(e){setDot('err');toast('Erreur Shopify : '+e.message,'err')}
 }
 function rRecent(){
@@ -397,6 +401,7 @@ function rConn(){
 
     +connCard('obsidian','⬟','Obsidian','Export local du cocon sémantique',!!S.get('obsidian_port'),
       '<div class="fg"><label class="fl">Port API locale</label><input class="inp" id="cf-op" type="number" placeholder="27123" value="'+(S.get('obsidian_port')||'27123')+'"><div class="fh">Plugin Local REST API requis — fonctionne uniquement en local</div></div>'
+      +'<div class="fg"><label class="fl">API Key Obsidian</label><input class="inp" id="cf-oak" type="password" placeholder="e99ccc1f..." value="'+(S.get('obsidian_api_key')||'')+'"><div class="fh">Paramètres → Local REST API → copier la clé</div></div>'
       +'<button class="btn bp" id="save-obsidian">Enregistrer</button>');
 
   document.getElementById('save-shopify').onclick=()=>{
@@ -431,7 +436,12 @@ function rConn(){
     S.set('dataforseo_pass', document.getElementById('cf-dfp').value.trim());
     toast('DataForSEO enregistré','ok');
   };
-  document.getElementById('save-obsidian').onclick=()=>{S.set('obsidian_port',document.getElementById('cf-op').value.trim());toast('Obsidian enregistré','ok');};
+  document.getElementById('save-obsidian').onclick=()=>{
+    S.set('obsidian_port',document.getElementById('cf-op').value.trim());
+    const oakEl=document.getElementById('cf-oak');
+    if(oakEl)S.set('obsidian_api_key',oakEl.value.trim());
+    toast('Obsidian enregistré','ok');
+  };
 }
 
 const DEF_PROMPTS={
@@ -1061,22 +1071,46 @@ function renderCoconView(blogs, pages, articles) {
   const indexPage = pages.find(p => p.handle.includes('index'));
 
   // Associe chaque blog à sa page mère
-  const cocon = blogs.map(blog => {
+  // Liste de référence des pierres
+  const PIERRES_REF = ["agate", "aigue-marine", "amazonite", "amethyste", "apatite", "aventurine", "calcedoine", "citrine", "cornaline", "cristal", "diamant", "emeraude", "grenat", "hematite", "howlite", "jade", "jaspe", "kunzite", "labradorite", "lapis", "malachite", "obsidienne", "oeil", "pierre-de-lave", "pierre-de-lune", "pierre-de-soleil", "quartz", "rhodochrosite", "rhodonite", "rubis", "saphir", "selenite", "sodalite", "tourmaline"];
+  
+  const isBlogPierre = (blog) => {
+    const h = blog.handle.toLowerCase();
+    return PIERRES_REF.some(p => h.includes(p));
+  };
+
+  // Trie : blogs génériques d'abord, puis blogs pierres
+  const sortedBlogs = [
+    ...blogs.filter(b => !isBlogPierre(b)),
+    ...blogs.filter(b => isBlogPierre(b))
+  ];
+
+  const cocon = sortedBlogs.map(blog => {
     const blogArts = articles.filter(a => a.blog_id === blog.id);
     blogArts.sort((a, b) => new Date(a.published_at || a.created_at) - new Date(b.published_at || b.created_at));
 
     // Trouve la page mère par correspondance de handle
+    // Nettoie le handle du blog pour extraire le nom de la pierre
     const cleanHandle = blog.handle
-      .replace('guide-de-la-','').replace('guide-du-','').replace('guide-de-l-','')
-      .replace('guide-de-','').replace('guide-des-','').replace('guide-','')
+      .replace('guide-de-lamethyste','amethyste')
+      .replace(/guide-de-l[ae]?-?/,'')
+      .replace(/guide-du-/,'')
+      .replace(/guide-des-/,'')
+      .replace(/guide-de-/,'')
+      .replace(/guide-/,'')
+      .replace(/^l-/,'').replace(/^la-/,'').replace(/^le-/,'').replace(/^les-/,'')
       .replace(/^-/,'').replace(/-$/,'');
+    // Cherche la page mère avec plusieurs stratégies
     const parentPage = 
       pages.find(p => p.handle === cleanHandle) ||
-      pages.find(p => cleanHandle.length > 3 && p.handle.startsWith(cleanHandle.slice(0,6))) ||
-      pages.find(p => cleanHandle.length > 3 && p.handle.includes(cleanHandle.slice(0,5))) ||
+      pages.find(p => cleanHandle.length > 4 && p.handle === cleanHandle.replace(/s$/,'')) ||
+      pages.find(p => cleanHandle.length > 4 && cleanHandle.startsWith(p.handle.slice(0,5))) ||
+      pages.find(p => cleanHandle.length > 4 && p.handle.startsWith(cleanHandle.slice(0,5))) ||
       pages.find(p => {
-        const blogWords = blog.title.toLowerCase().replace(/guide (de |du |de la |de l'|des )?/gi,'').trim().split(' ');
-        return blogWords.some(w => w.length > 3 && p.handle.includes(w));
+        const blogWords = blog.title.toLowerCase()
+          .replace(/guide\s+(de\s+l[ae]?\s+|du\s+|de\s+|des\s+)?/gi,'').trim()
+          .split(/[\s-]+/).filter(w => w.length > 3);
+        return blogWords.some(w => p.handle.includes(w) || p.handle === w);
       });
 
     return { blog, articles: blogArts, parentPage };
@@ -1098,7 +1132,7 @@ function renderCoconView(blogs, pages, articles) {
           <div>
             <div style="font-size:15px;font-weight:600">${blog.title}</div>
             ${parentPage
-              ? '<div style="font-size:12.5px;color:var(--t2);margin-top:2px">Page mère : <a href="https://' + domain + '/pages/' + parentPage.handle + '" target="_blank" style="color:var(--ac)">' + parentPage.title + '</a></div>'
+              ? '<div style="font-size:12.5px;color:var(--t2);margin-top:2px">Page mère : <a href="https://' + domain + '/pages/' + parentPage.handle + '" target="_blank" style="color:var(--ac);text-decoration:none">' + parentPage.title + ' ↗</a></div>'
               : '<div style="font-size:12.5px;color:var(--or);margin-top:2px">⚠ Page mère non détectée</div>'}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -1114,9 +1148,10 @@ function renderCoconView(blogs, pages, articles) {
             arts.map((a, i) => `
               <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--r);font-size:13px">
                 <span style="color:var(--t3);font-size:11px;width:20px;text-align:center">${i+1}</span>
-                <span style="font-weight:500;flex:1">${tr(a.title, 55)}</span>
+                <span style="font-weight:500;flex:1">${tr(a.title, 50)}</span>
                 <span class="bge ${a.published_at ? 'b-green' : 'b-gray'}" style="font-size:11px">${a.published_at ? 'Publié' : 'Brouillon'}</span>
                 <span style="color:var(--t3);font-size:12px">${wc(a.body_html || '')} mots</span>
+                <a href="https://${domain}/blogs/${blog.handle}/${a.handle}" target="_blank" style="color:var(--ac);font-size:12px;text-decoration:none;opacity:.7" title="Voir l'article">↗</a>
               </div>`).join('') +
             '</div>'}
       </div>
