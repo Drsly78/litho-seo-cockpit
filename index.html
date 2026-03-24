@@ -747,7 +747,7 @@ async function sendChat() {
       addChatMessage('Brief modifié. Tapez <strong>ok</strong> quand vous êtes prêt à rédiger.', 'bot');
     }
   } else if (state.step === 'done') {
-    addChatMessage('L'article a été généré. Vous pouvez démarrer une nouvelle création en décrivant votre prochain sujet.', 'bot');
+    addChatMessage('L\'article a été généré. Vous pouvez démarrer une nouvelle création en décrivant votre prochain sujet.', 'bot');
     window.chatState.step = 'idle';
     await analyzeRequest(msg);
   }
@@ -865,7 +865,7 @@ async function analyzeRequest(msg) {
 
   } catch (e) {
     removeChatSpinner('spin-analyze');
-    addChatMessage('Erreur lors de l'analyse : ' + e.message, 'bot');
+    addChatMessage('Erreur lors de l\'analyse : ' + e.message, 'bot');
     state.step = 'idle';
   }
 }
@@ -873,7 +873,7 @@ async function analyzeRequest(msg) {
 async function generateArticle() {
   const state = window.chatState;
   state.step = 'writing';
-  addChatMessage('Parfait ! Je rédige l'article complet maintenant. Cela peut prendre 30 à 60 secondes…', 'bot');
+  addChatMessage('Parfait ! Je rédige l\'article complet maintenant. Cela peut prendre 30 à 60 secondes…', 'bot');
   addChatSpinner('spin-write');
 
   try {
