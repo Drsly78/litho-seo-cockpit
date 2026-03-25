@@ -459,10 +459,58 @@ function rConn(){
 }
 
 const DEF_PROMPTS={
-  prompt_create:'Tu es un expert SEO et rédacteur spécialisé en lithothérapie et bijoux en pierre naturelle.\n\nTon objectif : rédiger un article de blog complet et optimisé SEO pour une boutique Shopify.\n\nRègles de structure :\n- Utiliser uniquement des H2 et H3 (le H1 est le titre Shopify, ne pas l\'inclure)\n- Longueur cible : 1200 à 1800 mots\n- Inclure un encart produit HTML après le 2e H2\n- Terminer par une FAQ avec 3 questions minimum\n\nRègles de maillage interne (exactement 4 liens) :\n- 1 lien vers la page mère / pilier de la pierre\n- 1 lien vers l\'article précédent du cocon\n- 1 lien vers un produit de la boutique\n- 1 lien vers une collection\n\nRetourner uniquement le HTML du body, sans balises html/head/body.',
-  prompt_optimize:'Tu es un expert SEO spécialisé en lithothérapie et bijoux en pierre naturelle.\n\nTu reçois un article existant avec ses données de performance.\n\nDiagnostique les faiblesses et propose une version améliorée.\n\nPoints de contrôle :\n- Longueur : minimum 1200 mots\n- Structure H2/H3 équilibrée\n- FAQ présente (3 questions minimum)\n- Maillage interne : 4 liens\n- Encart produit HTML présent\n- Meta description 150-160 caractères\n\nRetourner le HTML amélioré du body uniquement.'
-};
+  prompt_create:'Tu es un expert SEO senior et rédacteur spécialisé en lithothérapie, minéralogie et bijoux en pierre naturelle. Tu travailles pour une boutique e-commerce française (mineralfrance.com) positionnée sur un marché YMYL. Ton objectif est de produire le meilleur article possible pour ranker en position 1 sur Google France.\n\n' +
+    '═══ RÈGLES ABSOLUES ═══\n\n' +
+    'FORMAT DE RÉPONSE :\n' +
+    '- Répondre OBLIGATOIREMENT avec les marqueurs ---ARTICLE--- ---FICHE_TECHNIQUE--- ---CHECKLIST---\n' +
+    "- L\'article doit être en HTML PUR — jamais de Markdown (#, **, etc.)\n" +
+    '- Retourner UNIQUEMENT le HTML du body (pas de balises html/head/body)\n\n' +
+    'STRUCTURE HTML :\n' +
+    '- Commencer OBLIGATOIREMENT par un H2 (jamais de H1)\n' +
+    '- Utiliser UNIQUEMENT des H2 et H3\n' +
+    "- Ne JAMAIS répéter le titre de l\'article dans un H2 ou H3\n\n" +
+    'YMYL & E-E-A-T :\n' +
+    '- Toujours utiliser un ton conditionnel : "selon la tradition", "il est souvent associé à", "certains praticiens estiment que"\n' +
+    '- Ne JAMAIS formuler d\'affirmations médicales directes\n' +
+    '- Style expert et vouvoiement systématique\n\n' +
+    'SEO & VARIATION LEXICALE :\n' +
+    '- Densité mot-clé principal : maximum 1.5% du texte total\n' +
+    '- VARIATION LEXICALE OBLIGATOIRE : utiliser toutes les désignations fournies en alternance\n' +
+    '  Ex: "améthyste" → alterner avec "cette pierre", "ce cristal", "la gemme", "le minéral"\n' +
+    '  JAMAIS deux fois le même terme dans un même paragraphe\n' +
+    '  INTERDIT : répétitions mécaniques de variantes\n' +
+    '- Longue traîne : intégrer les expressions longue traîne naturellement comme des phrases\n' +
+    '- Mettre en gras les concepts clés avec <strong> (pas les mots-clés répétés)\n' +
+    '- Au moins une liste à puces (<ul><li>) ou numérotée (<ol><li>)\n' +
+    '- FAQ en fin d\'article UNIQUEMENT si pertinente\n\n' +
+    'MAILLAGE INTERNE :\n' +
+    '- 1 lien page mère avec target="_blank"\n' +
+    '- 1 lien article précédent avec target="_blank"\n' +
+    '- 1 lien collection avec target="_blank"\n' +
+    '- 1-2 liens externes autorité NON commerciaux (Wikipedia, Mindat, CNRS, universités)\n' +
+    '- TOUS les liens en target="_blank"\n\n' +
+    'ENCART PRODUIT (format exact) :\n' +
+    '<div class="cro-banner-responsive" style="background-color: #f7f3e8; border-radius: 12px; margin: 30px auto; text-align: center; border: 1px solid #e0d9c7; box-sizing: border-box; width: 90%; overflow: hidden; cursor: pointer;">\n' +
+    '<a href="{{product_url}}" style="text-decoration: none; color: #333; display: block;" target="_blank">\n' +
+    '<div style="padding: 15px 15px 0 15px;"><img src="{{product_image_url}}" alt="[ALT SEO]" style="width: 100%; height: auto; border-radius: 8px; display: block;"></div>\n' +
+    '<div style="padding: 15px 5% 25px 5%;"><h3 style="color: #6a0dad; margin: 0 0 5px 0; text-transform: uppercase;">{{product_title}}</h3>\n' +
+    '<p style="margin: 0 0 15px 0;">[BÉNÉFICES COURTS]</p>\n' +
+    '<button style="background-color: #6a0dad; color: #fff; border: none; padding: 12px 35px; border-radius: 50px; font-weight: bold; text-transform: uppercase;">DÉCOUVRIR MAINTENANT</button>\n' +
+    '</div></a></div>\n\n' +
+    'IMAGES : Insérer <!-- IMAGE: [description] --> aux emplacements logiques\n\n' +
+    '═══ FORMAT DE RÉPONSE ═══\n\n' +
+    '---ARTICLE---\n[HTML pur]\n\n' +
+    '---FICHE_TECHNIQUE---\n' +
+    'META_DESCRIPTION: [150-160 car.]\nMOT_CLE_PRINCIPAL: [kw]\nMOTS_CLES_SECONDAIRES: [liste]\n' +
+    'IMAGE_PRINCIPALE: Prompt: [...] | Nom: [...] | ALT: [...]\n' +
+    'IMAGES_SECONDAIRES:\n1. [...] 2. [...] 3. [...] 4. [...]\n' +
+    'ALT_ENCART (5): 1.[...] 2.[...] 3.[...] 4.[...] 5.[...]\n' +
+    'LIENS: page_mere|anchor|pos / article_precedent|anchor|pos / collection|anchor|pos / autorite1|url|justif / autorite2|url|justif\n\n' +
+    '---CHECKLIST---\n' +
+    '🧠 SEO/YMYL/EEAT\n[✅/❌] Ton conditionnel YMYL — [précision]\n[✅/❌] Variation lexicale respectée — [exemples utilisés]\n[✅/❌] Densité mot-clé ≤1.5% — [densité réelle]\n[✅/❌] Longue traîne intégrée — [expressions utilisées]\n[✅/❌] Mots-clés secondaires intégrés\n[✅/❌] Au moins une liste à puces\n🧩 Structure\n[✅/❌] Commence par H2 — [titre]\n[✅/❌] Uniquement H2/H3\n[✅/❌] Titre non répété\n[✅/❌] FAQ si pertinente\n🖼️ Images\n[✅/❌] Prompt image principale\n[✅/❌] 4 prompts secondaires\n[✅/❌] ALT optimisées\n🛒 Encart produit\n[✅/❌] HTML format correct\n[✅/❌] Lien produit intégré\n[✅/❌] 5 ALT encart\n🔗 Maillage\n[✅/❌] Lien page mère — [anchor]\n[✅/❌] Lien article précédent — [anchor]\n[✅/❌] Lien collection — [anchor]\n[✅/❌] Liens autorité — [sources]\n[✅/❌] Tous target="_blank"\n🧾 Meta\n[✅/❌] Meta description — [nb car.]\n[✅/❌] Prêt pour Shopify',
 
+  prompt_optimize:'Tu es un expert SEO spécialisé en lithothérapie.\n\nTu reçois un article existant avec ses données de performance.\n\nDiagnostique les faiblesses et propose une version améliorée.\n\nPoints de contrôle :\n- Longueur : minimum 1200 mots\n- Structure H2/H3 équilibrée\n- Variation lexicale : pas de répétitions mécaniques\n- FAQ présente si pertinente\n- Maillage interne : 4 liens\n- Encart produit HTML présent\n- Meta description 150-160 caractères\n\nRetourner le HTML amélioré du body uniquement.'
+};
 function rPrompts(){
   document.getElementById('p-prompts').innerHTML=
     '<div class="ph"><div class="pt">Prompts système</div><div class="ps">Instructions envoyées à Anthropic pour chaque module de génération</div></div>'
@@ -1121,9 +1169,44 @@ async function analyzeRequest(msg) {
     const s2d=document.querySelector('#spin-analyze div:last-child');
     if(s2d)s2d.innerHTML=sp()+' Étape 2/4 — Mots-clés connexes et questions…';
     const relatedData = await dfsReq('/v3/keywords_data/google_ads/keywords_for_keywords/live', [{
-      keywords: [bestKw], language_code: 'fr', location_code: 2250, limit: 15
+      keywords: [bestKw], language_code: 'fr', location_code: 2250, limit: 20
     }]);
     state.relatedKeywords = relatedData?.tasks?.[0]?.result || [];
+
+    // Longue traîne — questions et intentions spécifiques
+    const s2e=document.querySelector('#spin-analyze div:last-child');
+    if(s2e)s2e.innerHTML=sp()+' Étape 2/4 — Recherche longue traîne et questions…';
+    const longtailVariants = [
+      'comment '+stone, 'pourquoi '+stone, 'quelle '+stone,
+      stone+' comment utiliser', stone+' pour quoi', stone+' quand porter',
+      stone+' quel chakra', stone+' quelle pierre associer',
+      stone+' comment purifier', stone+' comment recharger',
+      stone+' bienfaits psychologiques', stone+' contre le stress',
+      stone+' pendant la grossesse', stone+' homme', stone+' enfant',
+      stone+' originale', stone+' qualité', stone+' fausse vs vraie'
+    ].slice(0,15);
+    const longtailData = await dfsReq('/v3/keywords_data/google_ads/search_volume/live', [{
+      keywords: longtailVariants, language_code: 'fr', location_code: 2250
+    }]);
+    const longtails = (longtailData?.tasks?.[0]?.result||[])
+      .filter(r=>r.search_volume>0)
+      .sort((a,b)=>b.search_volume-a.search_volume);
+    state.longtails = longtails;
+    
+    // Champ sémantique de la pierre
+    const semanticField = await callAnthropic(
+      'Tu es un expert en minéralogie et lithothérapie. Réponds en JSON uniquement.',
+      'Pour la pierre "' + stone + '", génère:\n' +
+      '1. Toutes les façons de la désigner sans répétition (max 8)\n' +
+      '2. Les synonymes et variantes courantes\n' +
+      '3. Les termes minéralogiques associés\n' +
+      'JSON: {"designations": ["terme1","terme2",...], "mineralogy": ["terme1","terme2",...]}',
+      400
+    );
+    try {
+      const semData = JSON.parse(semanticField.replace(/```json|```/g,'').trim());
+      state.semanticField = semData;
+    } catch(_) { state.semanticField = {designations:[], mineralogy:[]}; }
 
     removeChatSpinner('spin-analyze');
 
@@ -1146,7 +1229,9 @@ async function analyzeRequest(msg) {
       serpSites + '<br>' +
       'Longueur moyenne top 3 : <strong>~' + state.targetLength + ' mots</strong><br><br>' +
       '<strong>🔍 Positions GSC actuelles</strong><br>' +
-      (gscAll.length ? gscAll.map(r=>'• "'+r.keys[0]+'" → pos.<strong>'+Math.round(r.position)+'</strong> ('+r.impressions+' imp., CTR '+(r.ctr*100).toFixed(1)+'%)').join('<br>') : 'Aucune position détectée') +
+      (gscAll.length ? gscAll.map(r=>'• "'+r.keys[0]+'" → pos.<strong>'+Math.round(r.position)+'</strong> ('+r.impressions+' imp., CTR '+(r.ctr*100).toFixed(1)+'%)').join('<br>') : 'Aucune position détectée') + '<br><br>' +
+      '<strong>🔎 Longue traîne disponible</strong><br>' +
+      (longtails.slice(0,6).map(l=>'• '+l.keyword+' : '+l.search_volume+'/mois').join('<br>')||'Aucune') +
       '</div>',
       'bot'
     );
@@ -1170,6 +1255,7 @@ async function analyzeRequest(msg) {
       'ARTICLES EXISTANTS (à ne pas reproduire):\n' + existingTitles + '\n\n' +
       'SUJETS PAGE MÈRE (cannibalisation interdite):\n- ' + parentTopics + '\n\n' +
       'MOTS-CLÉS AVEC VOLUME (DataForSEO):\n' + volumesList + '\n\n' +
+      'LONGUE TRAÎNE DISPONIBLE:\n' + (longtails.slice(0,8).map(l=>l.keyword+' ('+l.search_volume+'/mois)').join('\n')||'N/A') + '\n\n' +
       'OPPORTUNITÉS GSC (pos.5-20, quick wins):\n' + gscOpportunities + '\n\n' +
       'RÈGLES:\n' +
       '1. Choisis OBLIGATOIREMENT parmi les mots-clés avec volume réel\n' +
@@ -1285,6 +1371,12 @@ async function generateArticle() {
     const domain = S.get('site_domain') || 'mineralfrance.com';
 
     // Construit le message utilisateur avec toutes les données
+    // Champ sémantique de la pierre
+    const semDesignations = state.semanticField?.designations?.join(', ') || '';
+    const semMineralogy = state.semanticField?.mineralogy?.join(', ') || '';
+    // Longue traîne intégrée
+    const longtailList = (state.longtails||[]).slice(0,8).map(l=>l.keyword+' ('+l.search_volume+'/mois)').join('\n') || '';
+
     // Construit un résumé SERP détaillé
     const serpItems = state.serpData?.serp?.items?.filter(i => i.type === 'organic').slice(0, 5) || [];
     const serpSummary = serpItems.length > 0 
@@ -1317,6 +1409,7 @@ async function generateArticle() {
 2. L'article DOIT être en HTML PUR — aucun Markdown (#, **, etc.)
 3. Commence le HTML directement par un <h2>, jamais de <h1>
 4. NE PAS reproduire les sujets déjà couverts listés ci-dessous
+5. VARIATION LEXICALE OBLIGATOIRE — voir champ sémantique ci-dessous
 
 ═══ DONNÉES DE RÉDACTION ═══
 
@@ -1344,6 +1437,18 @@ ${articlesContext}
 - Produit à promouvoir : ${product ? product.title + ' — https://' + domain + '/products/' + product.handle : 'Non disponible'}
 - Image produit : ${product?.images?.[0]?.src || 'Non disponible'}
 - Collection : ${collection ? collection.title + ' — https://' + domain + '/collections/' + collection.handle : 'Non disponible'}
+
+═══ CHAMP SÉMANTIQUE — VARIATION LEXICALE OBLIGATOIRE ═══
+Désignations à alterner (jamais deux fois le même terme dans un paragraphe) :
+${semDesignations || "améthyste, cette pierre, ce cristal violet, la gemme, le minéral"}
+Termes minéralogiques : ${semMineralogy || "quartz macrocristallin, dioxyde de silicium"}
+
+Règle densité : mot-clé principal max 1.5% du texte.
+Règle variation : alterner TOUTES les désignations naturellement.
+INTERDIT : répétitions mécaniques comme "pierre améthyste", "améthyste pierre", etc.
+
+═══ LONGUE TRAÎNE À INTÉGRER NATURELLEMENT ═══
+${longtailList}
 
 ═══ RÉGLAGES ÉDITORIAUX ═══
 Ton : ${S.get('editorial_tone') || 'Expert, pédagogique, vouvoiement'}
