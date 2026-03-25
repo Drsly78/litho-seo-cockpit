@@ -482,7 +482,8 @@ function rSettings(){
   document.getElementById('p-settings').innerHTML=
     '<div class="ph"><div class="pt">Réglages éditoriaux</div><div class="ps">Paramètres permanents injectés dans chaque génération</div></div>'
     +'<div class="card">'
-    +'<div class="fg"><label class="fl">Domaine du site</label><input class="inp" id="rs-site" type="text" placeholder="mineralfrance.com" value="'+(S.get('site_domain')||'')+'"><div class="fh">Utilisé pour construire les URLs de maillage interne</div></div>'
+    +'<div class="fg"><label class="fl">Auteur des articles</label><input class="inp" id="rs-author" type="text" placeholder="Jade Litho" value="'+(S.get('author_name')||'Jade Litho')+'"><div class="fh">Nom affiché comme auteur dans Shopify</div></div>'
+      +'<div class="fg"><label class="fl">Domaine du site</label><input class="inp" id="rs-site" type="text" placeholder="mineralfrance.com" value="'+(S.get('site_domain')||'')+'"><div class="fh">Utilisé pour construire les URLs de maillage interne</div></div>'
     +'<div class="fg"><label class="fl">Ton éditorial</label><textarea class="inp" id="rs-tone" rows="3" placeholder="Ton bienveillant et pédagogique, vouvoiement…" style="resize:vertical">'+(S.get('editorial_tone')||'')+'</textarea></div>'
     +'<div class="fg"><label class="fl">Règles de maillage interne</label><textarea class="inp" id="rs-links" rows="3" placeholder="1 lien page mère, 1 article précédent, 1 produit, 1 collection. Max 4 liens." style="resize:vertical">'+(S.get('internal_links_rules')||'')+'</textarea></div>'
     +'<div class="fg"><label class="fl">Concurrents principaux</label><input class="inp" id="rs-comp" type="text" placeholder="concurrent1.fr, concurrent2.fr" value="'+(S.get('competitors')||'')+'"></div>'
@@ -815,7 +816,7 @@ function rCreate() {
     ${!hasShopify ? '<div class="al al-w">⚠ Shopify non connecté — <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'connections\')">Connexions →</span></div>' : ''}
     ${!hasAnthropic ? '<div class="al al-w">⚠ Clé Anthropic manquante — <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'connections\')">Connexions →</span></div>' : ''}
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;height:calc(100vh - 200px)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;height:calc(100vh - 180px)">
 
       <!-- Panneau gauche : chat -->
       <div style="display:flex;flex-direction:column;gap:12px">
@@ -875,7 +876,14 @@ async function sendChat() {
   const state = window.chatState;
 
   if (state.step === 'idle') {
-    await analyzeRequest(msg);
+    // Détecte si c'est une demande d'article ou une question générale
+    const isArticleRequest = /article|rédige|écris|crée|blog|sujet|manque|améthyste|labradorite|cristal|pierre|cocon|seo/i.test(msg);
+    if (isArticleRequest) {
+      await analyzeRequest(msg);
+    } else {
+      // Conversation libre avec l'IA
+      await freeChat(msg);
+    }
   } else if (state.step === 'brief_ready') {
     if (msg.toLowerCase().includes('oui') || msg.toLowerCase().includes('ok') || msg.toLowerCase().includes('valide') || msg.toLowerCase().includes('go')) {
       await generateArticle();
@@ -983,16 +991,26 @@ async function analyzeRequest(msg) {
     const kd = serpResult?.items_count || 'N/A';
     const avgLen = serpResult ? Math.round(serpResult.items?.filter(i => i.type === 'organic').slice(0, 3).reduce((s, i) => s + (i.extended_snippet?.length || 1200), 0) / 3) : 1400;
 
+    const serpTopSites = serpResult?.items?.filter(i=>i.type==='organic').slice(0,3).map(i=>'• '+i.domain+' (~'+(i.extended_snippet?.length||1200)+' mots)').join('<br>') || 'Non disponible';
+    const gscPositions = state.gscData?.rows?.slice(0,3).map(r=>'• "'+r.keys[0]+'" → pos.'+Math.round(r.position)).join('<br>') || 'Non disponible';
+    
     addChatMessage(
-      'J\'ai analysé votre demande. Voici ce que je propose :<br><br>' +
+      '<strong>📊 Analyse complète</strong><br><br>' +
       '<strong>Mot-clé cible :</strong> ' + parsed.keyword + '<br>' +
-      '<strong>Blog :</strong> ' + parsed.blog_title + '<br>' +
-      '<strong>Volume estimé :</strong> ' + volume + ' recherches/mois<br>' +
-      '<strong>Articles existants :</strong> ' + arts.length + '<br>' +
-      (existingTitles ? '<br>Articles déjà publiés :<br>' + existingTitles + '<br><br>' : '') +
-      '<strong>Article précédent détecté :</strong> ' + (state.prevArticle ? state.prevArticle.title : 'Aucun') + '<br>' +
-      '<strong>Longueur cible recommandée :</strong> ~' + avgLen + ' mots<br><br>' +
-      'Voulez-vous que je génère le brief complet ? Tapez <strong>oui</strong> ou précisez vos directives.',
+      '<strong>Blog :</strong> ' + parsed.blog_title + '<br><br>' +
+      '<strong>📈 DataForSEO</strong><br>' +
+      'Volume : <strong>' + volume + '</strong> recherches/mois<br>' +
+      'Top 3 concurrents :<br>' + serpTopSites + '<br><br>' +
+      '<strong>🔍 Google Search Console</strong><br>' +
+      (gscPositions !== 'Non disponible' ? 'Positions actuelles :<br>' + gscPositions : 'Aucune position détectée sur ce sujet') + '<br><br>' +
+      '<strong>📚 Votre blog</strong><br>' +
+      'Articles existants : <strong>' + arts.length + '</strong><br>' +
+      (existingTitles ? 'Déjà publiés :<br>' + existingTitles + '<br>' : '') +
+      'Article précédent : <strong>' + (state.prevArticle ? state.prevArticle.title : 'Aucun') + '</strong><br>' +
+      'Page mère : <strong>' + (state.parentPage ? state.parentPage.title : 'Non détectée') + '</strong><br><br>' +
+      '<strong>🎯 Recommandation</strong><br>' +
+      'Longueur cible : <strong>~' + avgLen + ' mots</strong><br><br>' +
+      'Tapez <strong>oui</strong> pour générer l\'article complet, ou précisez vos directives.',
       'bot'
     );
 
@@ -1026,7 +1044,9 @@ async function generateArticle() {
     const serpSummary = state.serpData?.serp ? 'Top résultats SERP disponibles, longueur moyenne ~' + state.targetLength + ' mots' : 'Données SERP non disponibles';
     const gscSummary = state.gscData?.rows ? 'Positions GSC : ' + state.gscData.rows.slice(0, 3).map(r => r.keys[0] + ' pos.' + Math.round(r.position)).join(', ') : 'Données GSC non disponibles';
 
-    const userMessage = `Rédige un article optimisé SEO avec les données suivantes :
+    const userMessage = `IMPORTANT: Réponds OBLIGATOIREMENT avec les marqueurs ---ARTICLE--- ---FICHE_TECHNIQUE--- ---CHECKLIST--- exactement comme défini. L'article doit être en HTML pur, jamais en Markdown.
+
+Rédige un article optimisé SEO avec les données suivantes :
 
 MOT-CLÉ CIBLE : ${state.keyword}
 BLOG : ${state.blog}
@@ -1083,36 +1103,73 @@ function displayArticleResult(html, fiche, checklist, state) {
   const right = document.getElementById('create-right');
   if (!right) return;
 
+  const checklistFormatted = checklist
+    .replace(/\[✅\]/g,'<span style="color:var(--gn);font-size:16px">✅</span>')
+    .replace(/\[❌\]/g,'<span style="color:var(--rd);font-size:16px">❌</span>')
+    .replace(/^(🧠|🧩|🖼️|🛒|🔗|🧾).+$/gm, '<div style="font-weight:600;font-size:13px;margin:14px 0 6px;color:var(--t1)">$&</div>')
+    .replace(/\n/g,'<br>');
+
   right.innerHTML = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-      <button class="btn bp" onclick="showTab('tab-article')">Article HTML</button>
-      <button class="btn bs" onclick="showTab('tab-fiche')">Fiche technique</button>
-      <button class="btn bs" onclick="showTab('tab-checklist')">Checklist</button>
-      <button class="btn bp" style="margin-left:auto" onclick="pushDraft()">↑ Pousser en brouillon</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <button class="btn bp" id="tab-btn-article" onclick="showTab('tab-article',this)">📄 Article HTML</button>
+      <button class="btn bs" id="tab-btn-fiche" onclick="showTab('tab-fiche',this)">📋 Fiche technique</button>
+      <button class="btn bs" id="tab-btn-checklist" onclick="showTab('tab-checklist',this)">✅ Checklist</button>
+      <button class="btn bp" style="margin-left:auto;background:#2d8a5a" onclick="pushDraft()">↑ Pousser en brouillon</button>
     </div>
 
-    <div id="tab-article" class="card" style="overflow-y:auto;max-height:60vh">
-      <div class="ct">Article généré — HTML</div>
-      <textarea style="width:100%;height:400px;font-family:var(--mono);font-size:12px;border:none;outline:none;resize:vertical;color:var(--t1);background:transparent;line-height:1.6"
-        id="article-html-output">${html.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+    <div id="tab-article" style="overflow-y:auto;flex:1">
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">Article généré — HTML brut</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn bs" style="font-size:12px" onclick="document.getElementById('article-html-output').select();document.execCommand('copy');lithoToast('HTML copié','ok')">📋 Copier le HTML</button>
+        </div>
+        <textarea style="width:100%;height:500px;font-family:var(--mono);font-size:11.5px;border:1px solid var(--bd);border-radius:var(--r);outline:none;resize:vertical;color:var(--t1);background:var(--bg2);line-height:1.6;padding:12px"
+          id="article-html-output">${html}</textarea>
+      </div>
     </div>
 
-    <div id="tab-fiche" class="card" style="display:none;overflow-y:auto;max-height:60vh;white-space:pre-wrap;font-size:13px;line-height:1.7;font-family:var(--mono)">
-      <div class="ct">Fiche technique</div>
-      ${fiche || 'Aucune fiche générée'}
+    <div id="tab-fiche" style="display:none;overflow-y:auto;flex:1">
+      <div class="card">
+        <div class="ct">Fiche technique SEO</div>
+        <div style="font-family:var(--mono);font-size:12.5px;line-height:1.8;white-space:pre-wrap;color:var(--t1)">${fiche||'Aucune fiche générée — vérifiez le prompt système'}</div>
+      </div>
     </div>
 
-    <div id="tab-checklist" class="card" style="display:none;overflow-y:auto;max-height:60vh;white-space:pre-wrap;font-size:13px;line-height:1.9">
-      <div class="ct">Checklist auto-évaluation</div>
-      ${checklist.replace(/\[✅\]/g,'<span style="color:var(--gn)">✅</span>').replace(/\[❌\]/g,'<span style="color:var(--rd)">❌</span>') || 'Aucune checklist générée'}
+    <div id="tab-checklist" style="display:none;overflow-y:auto;flex:1">
+      <div class="card">
+        <div class="ct">Checklist auto-évaluation</div>
+        <div style="font-size:13px;line-height:2">${checklistFormatted||'Aucune checklist générée'}</div>
+      </div>
     </div>`;
 }
 
-function showTab(id) {
+function showTab(id, btn) {
   ['tab-article','tab-fiche','tab-checklist'].forEach(t => {
     const el = document.getElementById(t);
     if (el) el.style.display = t === id ? 'block' : 'none';
   });
+  if(btn){
+    ['tab-btn-article','tab-btn-fiche','tab-btn-checklist'].forEach(b=>{
+      const el=document.getElementById(b);
+      if(el){el.className=el.id==='tab-btn-'+id.replace('tab-','')?' btn bp':'btn bs';}
+    });
+  }
+}
+function lithoToast(msg,t){toast(msg,t);}
+
+async function freeChat(msg) {
+  addChatSpinner('spin-free');
+  try {
+    const context = 'Tu es un assistant SEO expert en lithothérapie pour la boutique mineralfrance.com. ' +
+      'Tu as accès aux données Shopify (blogs, articles, produits). ' +
+      'Réponds de manière concise et utile en français.';
+    const response = await callAnthropic(context, msg, 1000);
+    removeChatSpinner('spin-free');
+    addChatMessage(response, 'bot');
+  } catch(e) {
+    removeChatSpinner('spin-free');
+    addChatMessage('Erreur : ' + e.message, 'bot');
+  }
 }
 
 async function pushDraft() {
@@ -1126,11 +1183,11 @@ async function pushDraft() {
     const articleHtml = htmlOutput ? htmlOutput.value.replace(/&lt;/g,'<').replace(/&gt;/g,'>') : state.article;
 
     const domain = S.get('site_domain') || 'mineralfrance.com';
-    const result = await sReq('/admin/api/2024-01/blogs/' + state.blogId + '/articles.json', 'POST', {
+    const result = await sReq('/admin/api/2024-01/blogs/' + String(state.blogId) + '/articles.json', 'POST', {
       article: {
         title: state.keyword,
         body_html: articleHtml,
-        author: 'Litho SEO Cockpit',
+        author: S.get('author_name')||'Jade Litho',
         published: false,
         tags: state.blog
       }
