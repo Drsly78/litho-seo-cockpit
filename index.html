@@ -661,6 +661,29 @@ async function getGscData(keyword) {
 }
 
 // ─── ANTHROPIC API ────────────────────────────────────────────
+async function callAnthropicMessages(systemPrompt, messages, maxTokens=2000) {
+  const key = S.get('anthropic_key');
+  if (!key) throw new Error('Clé Anthropic non configurée');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: messages
+    })
+  });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'Erreur Anthropic'); }
+  const d = await r.json();
+  return d.content[0].text;
+}
+
 async function callAnthropic(systemPrompt, userMessage, maxTokens=8000) {
   const key = S.get('anthropic_key');
   if (!key) throw new Error('Clé Anthropic non configurée');
@@ -863,20 +886,17 @@ function rCreate() {
 
   // Init état du chat
   window.chatState = {
-    step: 'idle', // idle → analyzing → brief → writing → done
-    keyword: null,
-    blog: null,
-    blogId: null,
-    articles: [],
-    products: [],
-    collections: [],
-    parentPage: null,
-    prevArticle: null,
-    serpData: null,
-    gscData: null,
-    brief: null,
-    article: null
+    step: 'idle',
+    keyword: null, blog: null, blogId: null,
+    articles: [], products: [], collections: [],
+    parentPage: null, prevArticle: null,
+    serpData: null, gscData: null,
+    relatedKeywords: [], articlesSummary: [],
+    parentPageHeadings: [], parentPageContent: '',
+    gscBroad: null, targetLength: 1400,
+    brief: null, article: null
   };
+  window.chatHistory = []; // Réinitialise l'historique conversationnel
 }
 
 async function sendChat() {
@@ -888,25 +908,19 @@ async function sendChat() {
 
   const state = window.chatState;
 
-  if (state.step === 'idle') {
-    // Détecte si c'est une demande d'article ou une question générale
-    const isArticleRequest = /article|rédige|écris|crée|blog|sujet|manque|améthyste|labradorite|cristal|pierre|cocon|seo/i.test(msg);
-    if (isArticleRequest) {
-      await analyzeRequest(msg);
-    } else {
-      // Conversation libre avec l'IA
-      await freeChat(msg);
-    }
-  } else if (state.step === 'brief_ready') {
-    if (msg.toLowerCase().includes('oui') || msg.toLowerCase().includes('ok') || msg.toLowerCase().includes('valide') || msg.toLowerCase().includes('go')) {
-      await generateArticle();
-    } else {
-      addChatMessage('Brief modifié. Tapez <strong>ok</strong> quand vous êtes prêt à rédiger.', 'bot');
-    }
-  } else if (state.step === 'done') {
-    addChatMessage("L'article a été généré. Vous pouvez démarrer une nouvelle création en décrivant votre prochain sujet.", "bot");
-    window.chatState.step = 'idle';
+  // Détecte si l'utilisateur confirme la rédaction
+  const isConfirm = /^(oui|ok|go|valide|génère|rédige|lance|c'est bon|parfait|top)$/i.test(msg.trim());
+  // Détecte si c'est une nouvelle demande d'article
+  const isNewArticle = /article|rédige|écris|crée|blog|sujet|manque|cocon|compléter|complet/i.test(msg) && state.step === 'idle';
+
+  if (state.step === 'brief_ready' && isConfirm) {
+    await generateArticle();
+  } else if (isNewArticle) {
+    state.step = 'idle';
     await analyzeRequest(msg);
+  } else {
+    // Mode conversationnel — l'IA répond en tenant compte du contexte actuel
+    await contextualChat(msg);
   }
 }
 
@@ -1008,7 +1022,7 @@ async function analyzeRequest(msg) {
     // 5b. Charge le contenu de la page mère pour analyse anti-cannibalisation
     removeChatSpinner('spin-analyze');
     addChatSpinner('spin-analyze');
-    document.querySelector('#spin-analyze div:last-child').innerHTML = sp() + ' Analyse de la page mère…';
+    const s1=document.querySelector('#spin-analyze div:last-child');if(s1)s1.innerHTML=sp()+' Analyse de la page mère…';
     
     if (state.parentPage) {
       try {
@@ -1025,7 +1039,7 @@ async function analyzeRequest(msg) {
     // 6. DataForSEO - analyse approfondie
     removeChatSpinner('spin-analyze');
     addChatSpinner('spin-analyze');
-    document.querySelector('#spin-analyze div:last-child').innerHTML = sp() + ' Analyse SERP DataForSEO…';
+    const s2=document.querySelector('#spin-analyze div:last-child');if(s2)s2.innerHTML=sp()+' Analyse SERP DataForSEO…';
     
     const serpResult = await getSerp(parsed.keyword);
     const kwResult = await getKeywordData(parsed.keyword);
@@ -1043,7 +1057,7 @@ async function analyzeRequest(msg) {
     // 7. GSC - analyse approfondie
     removeChatSpinner('spin-analyze');
     addChatSpinner('spin-analyze');
-    document.querySelector('#spin-analyze div:last-child').innerHTML = sp() + ' Analyse Google Search Console…';
+    const s3=document.querySelector('#spin-analyze div:last-child');if(s3)s3.innerHTML=sp()+' Analyse Google Search Console…';
     
     const gscResult = await getGscData(parsed.keyword);
     // Récupère aussi les requêtes GSC pour la pierre en général
@@ -1060,28 +1074,40 @@ async function analyzeRequest(msg) {
     const kd = serpResult?.items_count || 'N/A';
     const avgLen = serpResult ? Math.round(serpResult.items?.filter(i => i.type === 'organic').slice(0, 3).reduce((s, i) => s + (i.extended_snippet?.length || 1200), 0) / 3) : 1400;
 
-    const serpTopSites = serpResult?.items?.filter(i=>i.type==='organic').slice(0,3).map(i=>'• '+i.domain+' (~'+(i.extended_snippet?.length||1200)+' mots)').join('<br>') || 'Non disponible';
-    const gscPositions = state.gscData?.rows?.slice(0,3).map(r=>'• "'+r.keys[0]+'" → pos.'+Math.round(r.position)).join('<br>') || 'Non disponible';
-    
+    const serpTopSites = serpResult?.items?.filter(i=>i.type==='organic').slice(0,5).map((i,n)=>'<span style="color:var(--t3);font-size:11px">'+(n+1)+'.</span> '+i.domain).join('<br>') || 'Non disponible';
+    const gscPositions = state.gscData?.rows?.slice(0,5).map(r=>'• "'+r.keys[0]+'" → <strong>pos.'+Math.round(r.position)+'</strong> ('+r.impressions+' imp.)').join('<br>') || 'Aucune position détectée';
+
+    // Sélectionne produit et collection
+    const domain2 = S.get('site_domain')||'mineralfrance.com';
+    const stoneName2 = (parsed.blog_handle||'').replace(/guide-de-la?-?|guide-du-?|guide-des-?|guide-/g,'').replace(/^l[ae]?-/,'');
+    const product2 = state.products.find(p=>p.title.toLowerCase().includes(stoneName2.slice(0,5))||p.handle.includes(stoneName2.slice(0,5)))||state.products[0];
+    const collection2 = state.collections.find(c=>c.handle.includes(stoneName2.slice(0,5)))||state.collections[0];
+    state.selectedProduct = product2;
+    state.selectedCollection = collection2;
+
     addChatMessage(
-      '<strong>📊 Analyse complète</strong><br><br>' +
-      '<strong>Mot-clé cible :</strong> ' + parsed.keyword + '<br>' +
-      '<strong>Blog :</strong> ' + parsed.blog_title + '<br><br>' +
-      '<strong>📈 DataForSEO</strong><br>' +
-      'Volume : <strong>' + volume + '</strong> recherches/mois<br>' +
-      'Top 3 concurrents :<br>' + serpTopSites + '<br><br>' +
-      '<strong>🔍 Google Search Console</strong><br>' +
-      (gscPositions !== 'Non disponible' ? 'Positions actuelles :<br>' + gscPositions : 'Aucune position détectée sur ce sujet') + '<br><br>' +
-      '<strong>📚 Votre blog</strong><br>' +
-      'Articles existants : <strong>' + arts.length + '</strong><br>' +
-      (existingTitles ? 'Déjà publiés :<br>' + existingTitles + '<br>' : '') +
-      'Article précédent : <strong>' + (state.prevArticle ? state.prevArticle.title : 'Aucun') + '</strong><br>' +
-      'Page mère : <strong>' + (state.parentPage ? state.parentPage.title : 'Non détectée') + '</strong><br><br>' +
-      '<strong>🎯 Recommandation</strong><br>' +
+      '<strong>📊 Analyse complète — Brief proposé</strong><br><br>' +
+      '<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:13px;line-height:1.9">' +
+      '<strong>🎯 Mot-clé cible</strong><br>' +
+      '→ <strong>' + parsed.keyword + '</strong> | Volume : ' + volume + '/mois<br><br>' +
+      '<strong>📈 Top concurrents SERP</strong><br>' + serpTopSites + '<br>' +
       'Longueur cible : <strong>~' + avgLen + ' mots</strong><br><br>' +
-      'Tapez <strong>oui</strong> pour générer l\'article complet, ou précisez vos directives.',
+      '<strong>🔍 Positions GSC actuelles</strong><br>' + gscPositions + '<br><br>' +
+      '<strong>📚 Cocon sémantique</strong><br>' +
+      '• Page mère : <strong>' + (state.parentPage ? state.parentPage.title : '⚠ Non détectée') + '</strong><br>' +
+      '• Article précédent : <strong>' + (state.prevArticle ? state.prevArticle.title : 'Aucun') + '</strong><br>' +
+      '• Sujets page mère à éviter : ' + (state.parentPageHeadings?.slice(0,3).join(', ')||'Non analysée') + '<br><br>' +
+      '<strong>🛍 Maillage interne prévu</strong><br>' +
+      '• Produit : <strong>' + (product2 ? product2.title : 'Non sélectionné') + '</strong><br>' +
+      '• Collection : <strong>' + (collection2 ? collection2.title : 'Non sélectionnée') + '</strong><br>' +
+      '• Lien autorité 1 : mindat.org (minéralogie)<br>' +
+      '• Lien autorité 2 : wikipedia.org (cristallographie)<br><br>' +
+      '<strong>💡 Pourquoi ce sujet ?</strong><br>' + parsed.suggestion +
+      '</div><br>' +
+      'Tapez <strong>oui</strong> pour lancer la rédaction, ou posez-moi des questions sur ce brief.',
       'bot'
     );
+    window.chatHistory = [{role: 'assistant', content: 'Brief proposé: mot-clé "' + parsed.keyword + '", page mère: ' + (state.parentPage?.title||'N/A') + ', articles existants: ' + arts.map(a=>a.title).slice(0,5).join(', ')}];
 
     state.step = 'brief_ready';
     state.targetLength = avgLen;
@@ -1271,15 +1297,47 @@ function showTab(id, btn) {
 }
 function lithoToast(msg,t){toast(msg,t);}
 
-async function freeChat(msg) {
+async function contextualChat(msg) {
   addChatSpinner('spin-free');
   try {
-    const context = 'Tu es un assistant SEO expert en lithothérapie pour la boutique mineralfrance.com. ' +
-      'Tu as accès aux données Shopify (blogs, articles, produits). ' +
-      'Réponds de manière concise et utile en français.';
-    const response = await callAnthropic(context, msg, 1000);
+    const state = window.chatState;
+    
+    // Construit le contexte selon l'état actuel
+    let contextInfo = '';
+    if (state.keyword) {
+      contextInfo += '\n\nCONTEXTE ACTUEL DE L\'ANALYSE:\n';
+      contextInfo += 'Mot-clé analysé: ' + state.keyword + '\n';
+      contextInfo += 'Blog: ' + (state.blog||'') + '\n';
+      contextInfo += 'Page mère: ' + (state.parentPage?.title||'Non détectée') + '\n';
+      contextInfo += 'Article précédent: ' + (state.prevArticle?.title||'Aucun') + '\n';
+      contextInfo += 'Articles existants: ' + (state.articles||[]).map(a=>a.title).join(', ') + '\n';
+      if (state.serpData?.kw) contextInfo += 'Volume DataForSEO: ' + (state.serpData.kw.search_volume||'N/A') + '\n';
+      if (state.gscData?.rows) contextInfo += 'Positions GSC: ' + state.gscData.rows.slice(0,3).map(r=>r.keys[0]+' pos.'+Math.round(r.position)).join(', ') + '\n';
+      if (state.parentPageHeadings?.length) contextInfo += 'Sujets page mère: ' + state.parentPageHeadings.join(', ') + '\n';
+      contextInfo += 'Étape actuelle: ' + state.step + '\n';
+      if (state.step === 'brief_ready') contextInfo += '\nUN BRIEF EST PRÊT. Si l\'utilisateur valide, réponds que tu vas générer l\'article. S\'il demande des modifications, adapte le brief et explique les changements.\n';
+    }
+    
+    const systemPrompt = 'Tu es un assistant SEO expert et consultant éditorial spécialisé en lithothérapie pour mineralfrance.com.' +
+      '\nTu assistes dans la création de contenu SEO optimisé pour ranker sur Google France.' +
+      '\nTu réponds toujours en français, de manière concise et professionnelle.' +
+      '\nTu peux expliquer ton raisonnement, discuter de stratégie, analyser la cannibalisation, suggérer des angles.' +
+      '\nQuand on te demande comment tu as procédé, explique en détail les données que tu as analysées.' +
+      contextInfo;
+
+    // Historique de conversation pour le contexte
+    const chatHistory = window.chatHistory || [];
+    chatHistory.push({role: 'user', content: msg});
+    
+    const messages = chatHistory.slice(-6); // Garde les 6 derniers messages
+    
+    const response = await callAnthropicMessages(systemPrompt, messages, 1500);
     removeChatSpinner('spin-free');
     addChatMessage(response, 'bot');
+    
+    chatHistory.push({role: 'assistant', content: response});
+    window.chatHistory = chatHistory.slice(-10); // Garde les 10 derniers
+    
   } catch(e) {
     removeChatSpinner('spin-free');
     addChatMessage('Erreur : ' + e.message, 'bot');
