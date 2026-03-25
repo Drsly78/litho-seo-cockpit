@@ -586,6 +586,32 @@ async function getKeywordData(keyword) {
   return data.tasks[0].result[0];
 }
 
+async function getKeywordVariants(baseKeyword) {
+  // Teste plusieurs variantes et retourne celle avec le meilleur volume
+  const stone = baseKeyword.split(' ')[0];
+  const variants = [
+    baseKeyword,
+    stone + ' propriétés',
+    stone + ' vertus',
+    stone + ' lithothérapie',
+    stone + ' bienfaits',
+    stone + ' symbolique',
+    stone + ' chakra',
+    stone + ' méditation',
+    stone + ' protection',
+    stone + ' sommeil'
+  ].slice(0, 10);
+  
+  const data = await dfsReq('/v3/keywords_data/google_ads/search_volume/live', [{
+    keywords: variants, language_code: 'fr', location_code: 2250
+  }]);
+  if (!data?.tasks?.[0]?.result) return [];
+  
+  return data.tasks[0].result
+    .filter(r => r.search_volume > 0)
+    .sort((a, b) => b.search_volume - a.search_volume);
+}
+
 // ─── GSC API ──────────────────────────────────────────────────
 // Génère un token d'accès depuis le compte de service via JWT
 async function getServiceAccountToken(scopes) {
@@ -956,163 +982,286 @@ function removeChatSpinner(id) {
 async function analyzeRequest(msg) {
   const state = window.chatState;
   state.step = 'analyzing';
+  window.chatHistory = [];
+
+  // ══════════════════════════════════════════
+  // ÉTAPE 1 — ANALYSE DU SITE
+  // ══════════════════════════════════════════
   addChatSpinner('spin-analyze');
+  const s0=document.querySelector('#spin-analyze div:last-child');
+  if(s0)s0.innerHTML=sp()+' Étape 1/4 — Analyse de votre site Shopify…';
 
   try {
-    // 1. Charge les blogs Shopify
-    const blogsData = await sReq('/admin/api/2024-01/blogs.json');
-    const blogs = blogsData.blogs || [];
-
-    // 2. Charge les produits et collections
-    const [prodsData, collsData, pagesData] = await Promise.all([
+    // Charge blogs, produits, collections, pages
+    const [blogsData, prodsData, collsData, pagesData] = await Promise.all([
+      sReq('/admin/api/2024-01/blogs.json'),
       sReq('/admin/api/2024-01/products.json?limit=50&fields=id,title,handle,images'),
       sReq('/admin/api/2024-01/custom_collections.json?limit=50&fields=id,title,handle'),
       sReq('/admin/api/2024-01/pages.json?limit=100&fields=id,title,handle')
     ]);
 
+    const blogs = blogsData.blogs || [];
     state.products = prodsData.products || [];
-    state.collections = collsData.custom_collections || [];
+    // Filtre uniquement les collections bracelets
+    state.collections = (collsData.custom_collections || []).filter(c =>
+      c.handle.includes('bracelet') || c.title.toLowerCase().includes('bracelet')
+    );
     const pages = pagesData.pages || [];
 
-    // 3. Demande à l'IA d'analyser la requête et choisir le blog/mot-clé
-    const blogList = blogs.map(b => b.title + ' (handle: ' + b.handle + ', id: ' + b.id + ')').join('\n');
-    const existingTitlesList = (state.articles||[]).slice(0,20).map(a => '- ' + a.title).join('\n');
-    const parentHeadingsList = state.parentPageHeadings?.join(', ') || 'Non chargée';
-    const relatedKwList = state.relatedKeywords?.slice(0,10).map(k => k.keyword + ' (' + (k.search_volume||0) + '/mois)').join(', ') || '';
-    
-    const analysis = await callAnthropic(
-      'Tu es un expert SEO spécialisé en lithothérapie. Réponds UNIQUEMENT en JSON valide, aucun texte avant ou après.',
-      'Message utilisateur: "' + msg + '"\n\n' +
-      'Blogs disponibles:\n' + blogList + '\n\n' +
-      'Articles déjà publiés dans ce blog:\n' + existingTitlesList + '\n\n' +
-      'Sujets couverts par la PAGE MÈRE (à NE PAS répéter pour éviter la cannibalisation):\n' + parentHeadingsList + '\n\n' +
-      'Mots-clés connexes disponibles (DataForSEO):\n' + relatedKwList + '\n\n' +
-      'RÈGLES IMPORTANTES:\n' +
-      '1. Choisis un sujet SATELLITE spécifique — jamais un sujet déjà couvert par la page mère\n' +
-      '2. Le sujet doit compléter le cocon, pas concurrencer la page mère\n' +
-      '3. Préfère les angles pratiques, spécifiques, avec une intention de recherche claire\n' +
-      '4. Vérifie que le sujet n\047est pas déjà traité dans les articles existants\n\n' +
-      'Réponds en JSON: {"keyword": "mot-clé satellite précis et spécifique", "blog_id": "id du blog", "blog_title": "titre du blog", "blog_handle": "handle du blog", "suggestion": "pourquoi ce sujet est pertinent et comment il complète le cocon sans cannibaliser"}',
-      800
+    // Identifie le blog cible via l'IA
+    const blogList = blogs.map(b => b.title + ' (id:' + b.id + ', handle:' + b.handle + ')').join('\n');
+    const blogAnalysis = await callAnthropic(
+      'Tu es un expert SEO. Réponds UNIQUEMENT en JSON valide.',
+      'Message: "' + msg + '"\nBlogs: ' + blogList + '\nRéponds: {"blog_id":"id","blog_title":"titre","blog_handle":"handle","stone":"nom de la pierre en minuscules"}',
+      300
     );
-
-    let parsed;
-    try { parsed = JSON.parse(analysis.replace(/```json|```/g, '').trim()); }
-    catch { throw new Error('Réponse IA invalide'); }
-
-    state.keyword = parsed.keyword;
+    const parsed = JSON.parse(blogAnalysis.replace(/```json|```/g,'').trim());
     state.blog = parsed.blog_title;
     state.blogId = parsed.blog_id;
 
-    // 4. Charge les articles du blog identifié
+    // Charge les articles du blog cible
+    const s1a=document.querySelector('#spin-analyze div:last-child');
+    if(s1a)s1a.innerHTML=sp()+' Étape 1/4 — Chargement des articles du blog…';
     const arts = await getAllArticles(parsed.blog_id);
-    arts.sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+    arts.sort((a,b) => new Date(b.published_at||b.created_at) - new Date(a.published_at||a.created_at));
     state.articles = arts;
     state.prevArticle = arts.find(a => a.published_at) || null;
-    state.articlesSummary = arts.slice(0, 15).map(a => ({
+    state.articlesSummary = arts.slice(0,20).map(a => ({
       title: a.title,
-      excerpt: a.body_html ? a.body_html.replace(/<[^>]+>/g, ' ').replace(/[ ]+/g, ' ').trim().slice(0, 200) : ''
+      excerpt: a.body_html ? a.body_html.replace(/<[^>]+>/g,' ').replace(/[ ]+/g,' ').trim().slice(0,150) : ''
     }));
 
-    // 5. Trouve la page mère
-    const blogHandle = parsed.blog_handle || '';
-    const stoneName = blogHandle.replace('guide-de-la', '').replace('guide-du', '').replace('guide-de-l', '').replace('guide-des', '').replace(/-/g, '');
-    state.parentPage = pages.find(p => p.handle.replace(/-/g, '').includes(stoneName.slice(0, 5))) || null;
+    // Charge la page mère et ses H2/H3
+    const stoneName = parsed.stone || parsed.blog_handle.replace(/guide-de-la?-?|guide-du-?|guide-de-l?-?|guide-des-?|guide-/g,'').replace(/^l[ae]?-/,'');
+    state.parentPage = pages.find(p => p.handle === stoneName) ||
+      pages.find(p => p.handle.includes(stoneName.slice(0,6))) ||
+      pages.find(p => stoneName.length>4 && p.handle.startsWith(stoneName.slice(0,5))) || null;
 
-    // 5b. Charge le contenu de la page mère pour analyse anti-cannibalisation
-    removeChatSpinner('spin-analyze');
-    addChatSpinner('spin-analyze');
-    const s1=document.querySelector('#spin-analyze div:last-child');if(s1)s1.innerHTML=sp()+' Analyse de la page mère…';
-    
     if (state.parentPage) {
+      const s1b=document.querySelector('#spin-analyze div:last-child');
+      if(s1b)s1b.innerHTML=sp()+' Étape 1/4 — Analyse de la page mère…';
       try {
         const parentData = await sReq('/admin/api/2024-01/pages/' + state.parentPage.id + '.json');
         if (parentData.page) {
           state.parentPageContent = parentData.page.body_html || '';
-          // Extrait les H2/H3 de la page mère pour détecter les sujets couverts
-          const headings = [...(state.parentPageContent.matchAll(/<h[23][^>]*>([^<]+)<\/h[23]>/gi))].map(m => m[1].trim());
-          state.parentPageHeadings = headings;
+          state.parentPageHeadings = [...(state.parentPageContent.matchAll(/<h[23][^>]*>([^<]+)<\/h[23]>/gi))].map(m=>m[1].trim());
         }
       } catch(_) {}
     }
 
-    // 6. DataForSEO - analyse approfondie
-    removeChatSpinner('spin-analyze');
-    addChatSpinner('spin-analyze');
-    const s2=document.querySelector('#spin-analyze div:last-child');if(s2)s2.innerHTML=sp()+' Analyse SERP DataForSEO…';
-    
-    const serpResult = await getSerp(parsed.keyword);
-    const kwResult = await getKeywordData(parsed.keyword);
-    
-    // Récupère aussi les suggestions de mots-clés connexes
-    const relatedKws = await dfsReq('/v3/keywords_data/google_ads/keywords_for_keywords/live', [{
-      keywords: [parsed.keyword],
-      language_code: 'fr',
-      location_code: 2250,
-      limit: 10
-    }]);
-    state.relatedKeywords = relatedKws?.tasks?.[0]?.result || [];
-    state.serpData = { serp: serpResult, kw: kwResult };
-
-    // 7. GSC - analyse approfondie
-    removeChatSpinner('spin-analyze');
-    addChatSpinner('spin-analyze');
-    const s3=document.querySelector('#spin-analyze div:last-child');if(s3)s3.innerHTML=sp()+' Analyse Google Search Console…';
-    
-    const gscResult = await getGscData(parsed.keyword);
-    // Récupère aussi les requêtes GSC pour la pierre en général
-    const stoneTerm = parsed.keyword.split(' ')[0];
-    const gscBroad = await getGscData(stoneTerm);
-    state.gscData = gscResult;
-    state.gscBroad = gscBroad;
-
     removeChatSpinner('spin-analyze');
 
-    // 8. Affiche les recommandations
-    const existingTitles = arts.map(a => '• ' + a.title).slice(0, 8).join('<br>');
-    const volume = kwResult?.search_volume || 'N/A';
-    const kd = serpResult?.items_count || 'N/A';
-    const avgLen = serpResult ? Math.round(serpResult.items?.filter(i => i.type === 'organic').slice(0, 3).reduce((s, i) => s + (i.extended_snippet?.length || 1200), 0) / 3) : 1400;
-
-    const serpTopSites = serpResult?.items?.filter(i=>i.type==='organic').slice(0,5).map((i,n)=>'<span style="color:var(--t3);font-size:11px">'+(n+1)+'.</span> '+i.domain).join('<br>') || 'Non disponible';
-    const gscPositions = state.gscData?.rows?.slice(0,5).map(r=>'• "'+r.keys[0]+'" → <strong>pos.'+Math.round(r.position)+'</strong> ('+r.impressions+' imp.)').join('<br>') || 'Aucune position détectée';
-
-    // Sélectionne produit et collection
-    const domain2 = S.get('site_domain')||'mineralfrance.com';
-    const stoneName2 = (parsed.blog_handle||'').replace(/guide-de-la?-?|guide-du-?|guide-des-?|guide-/g,'').replace(/^l[ae]?-/,'');
-    const product2 = state.products.find(p=>p.title.toLowerCase().includes(stoneName2.slice(0,5))||p.handle.includes(stoneName2.slice(0,5)))||state.products[0];
-    const collection2 = state.collections.find(c=>c.handle.includes(stoneName2.slice(0,5)))||state.collections[0];
-    state.selectedProduct = product2;
-    state.selectedCollection = collection2;
+    // Compte-rendu Étape 1
+    const publishedArts = arts.filter(a => a.published_at);
+    const draftArts = arts.filter(a => !a.published_at);
+    const topicsInPage = state.parentPageHeadings?.length
+      ? state.parentPageHeadings.slice(0,5).map(h => '• ' + h).join('<br>')
+      : '⚠ Page mère non chargée';
 
     addChatMessage(
-      '<strong>📊 Analyse complète — Brief proposé</strong><br><br>' +
-      '<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:13px;line-height:1.9">' +
-      '<strong>🎯 Mot-clé cible</strong><br>' +
-      '→ <strong>' + parsed.keyword + '</strong> | Volume : ' + volume + '/mois<br><br>' +
-      '<strong>📈 Top concurrents SERP</strong><br>' + serpTopSites + '<br>' +
-      'Longueur cible : <strong>~' + avgLen + ' mots</strong><br><br>' +
-      '<strong>🔍 Positions GSC actuelles</strong><br>' + gscPositions + '<br><br>' +
-      '<strong>📚 Cocon sémantique</strong><br>' +
-      '• Page mère : <strong>' + (state.parentPage ? state.parentPage.title : '⚠ Non détectée') + '</strong><br>' +
-      '• Article précédent : <strong>' + (state.prevArticle ? state.prevArticle.title : 'Aucun') + '</strong><br>' +
-      '• Sujets page mère à éviter : ' + (state.parentPageHeadings?.slice(0,3).join(', ')||'Non analysée') + '<br><br>' +
-      '<strong>🛍 Maillage interne prévu</strong><br>' +
-      '• Produit : <strong>' + (product2 ? product2.title : 'Non sélectionné') + '</strong><br>' +
-      '• Collection : <strong>' + (collection2 ? collection2.title : 'Non sélectionnée') + '</strong><br>' +
-      '• Lien autorité 1 : mindat.org (minéralogie)<br>' +
-      '• Lien autorité 2 : wikipedia.org (cristallographie)<br><br>' +
-      '<strong>💡 Pourquoi ce sujet ?</strong><br>' + parsed.suggestion +
-      '</div><br>' +
-      'Tapez <strong>oui</strong> pour lancer la rédaction, ou posez-moi des questions sur ce brief.',
+      '<strong>✅ Étape 1/4 — Analyse du site terminée</strong><br><br>' +
+      '<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px;line-height:1.8">' +
+      '<strong>📚 Blog analysé : ' + parsed.blog_title + '</strong><br>' +
+      '• ' + publishedArts.length + ' articles publiés, ' + draftArts.length + ' brouillons<br>' +
+      '• Articles publiés :<br>' + publishedArts.slice(0,8).map(a=>'  → '+a.title).join('<br>') + '<br><br>' +
+      '<strong>📄 Page mère : ' + (state.parentPage ? state.parentPage.title : '⚠ Non détectée') + '</strong><br>' +
+      'Sujets couverts (à ne pas cannibaliser) :<br>' + topicsInPage + '<br><br>' +
+      '<strong>🛍 Ressources disponibles</strong><br>' +
+      '• Bracelets disponibles : ' + state.products.filter(p=>p.handle.includes('bracelet')||p.title.toLowerCase().includes('bracelet')).length + '<br>' +
+      '• Collections bracelets : ' + state.collections.length +
+      '</div>',
       'bot'
     );
-    window.chatHistory = [{role: 'assistant', content: 'Brief proposé: mot-clé "' + parsed.keyword + '", page mère: ' + (state.parentPage?.title||'N/A') + ', articles existants: ' + arts.map(a=>a.title).slice(0,5).join(', ')}];
 
+    // ══════════════════════════════════════════
+    // ÉTAPE 2 — RECHERCHE SEO
+    // ══════════════════════════════════════════
+    addChatSpinner('spin-analyze');
+    const s2=document.querySelector('#spin-analyze div:last-child');
+    if(s2)s2.innerHTML=sp()+' Étape 2/4 — Recherche DataForSEO (variantes + SERP)…';
+
+    // Génère les variantes à tester
+    const stone = parsed.stone || stoneName;
+    const baseVariants = [
+      stone, stone+' propriétés', stone+' vertus lithothérapie',
+      stone+' bienfaits', stone+' signification', stone+' chakra',
+      stone+' méditation', stone+' protection', stone+' sommeil',
+      stone+' bracelet', stone+' comment utiliser', stone+' purification',
+      stone+' rechargement', stone+' symbolique', stone+' origine',
+      stone+' pierre naturelle', stone+' cristal', stone+' prix',
+      'bracelet '+stone+' vertus', stone+' avis'
+    ].slice(0,20);
+
+    const volData = await dfsReq('/v3/keywords_data/google_ads/search_volume/live', [{
+      keywords: baseVariants, language_code: 'fr', location_code: 2250
+    }]);
+    const volumes = (volData?.tasks?.[0]?.result || [])
+      .filter(r => r.search_volume > 0)
+      .sort((a,b) => b.search_volume - a.search_volume);
+    state.keywordVariants = volumes;
+
+    // Analyse SERP du meilleur mot-clé
+    const bestKw = volumes[0]?.keyword || stone;
+    const s2b=document.querySelector('#spin-analyze div:last-child');
+    if(s2b)s2b.innerHTML=sp()+' Étape 2/4 — Analyse SERP top 10…';
+    const serpResult = await getSerp(bestKw);
+    state.serpData = { serp: serpResult, kw: volumes[0] };
+
+    // GSC — positions actuelles
+    const s2c=document.querySelector('#spin-analyze div:last-child');
+    if(s2c)s2c.innerHTML=sp()+' Étape 2/4 — Analyse Google Search Console…';
+    const [gscExact, gscBroad] = await Promise.all([
+      getGscData(bestKw),
+      getGscData(stone)
+    ]);
+    state.gscData = gscExact;
+    state.gscBroad = gscBroad;
+
+    // Mots-clés connexes
+    const s2d=document.querySelector('#spin-analyze div:last-child');
+    if(s2d)s2d.innerHTML=sp()+' Étape 2/4 — Mots-clés connexes et questions…';
+    const relatedData = await dfsReq('/v3/keywords_data/google_ads/keywords_for_keywords/live', [{
+      keywords: [bestKw], language_code: 'fr', location_code: 2250, limit: 15
+    }]);
+    state.relatedKeywords = relatedData?.tasks?.[0]?.result || [];
+
+    removeChatSpinner('spin-analyze');
+
+    // Compte-rendu Étape 2
+    const serpSites = serpResult?.items?.filter(i=>i.type==='organic').slice(0,5)
+      .map((i,n)=>'  '+(n+1)+'. '+i.domain+' — "'+( i.title||'').slice(0,45)+'"').join('<br>') || 'Non disponible';
+    const avgLen = serpResult?.items?.filter(i=>i.type==='organic').slice(0,3)
+      .reduce((s,i)=>s+(i.extended_snippet?.length||1200),0)/3 || 1400;
+    state.targetLength = Math.round(avgLen/100)*100;
+    const gscAll = [...(gscExact?.rows||[]),...(gscBroad?.rows||[])]
+      .filter((r,i,a)=>a.findIndex(x=>x.keys[0]===r.keys[0])===i)
+      .sort((a,b)=>b.impressions-a.impressions).slice(0,5);
+
+    addChatMessage(
+      '<strong>✅ Étape 2/4 — Recherche SEO terminée</strong><br><br>' +
+      '<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px;line-height:1.8">' +
+      '<strong>📈 Top opportunités DataForSEO</strong><br>' +
+      volumes.slice(0,8).map(v=>'• <strong>'+v.keyword+'</strong> : '+v.search_volume+'/mois').join('<br>') + '<br><br>' +
+      '<strong>🏆 Analyse SERP — "' + bestKw + '"</strong><br>' +
+      serpSites + '<br>' +
+      'Longueur moyenne top 3 : <strong>~' + state.targetLength + ' mots</strong><br><br>' +
+      '<strong>🔍 Positions GSC actuelles</strong><br>' +
+      (gscAll.length ? gscAll.map(r=>'• "'+r.keys[0]+'" → pos.<strong>'+Math.round(r.position)+'</strong> ('+r.impressions+' imp., CTR '+(r.ctr*100).toFixed(1)+'%)').join('<br>') : 'Aucune position détectée') +
+      '</div>',
+      'bot'
+    );
+
+    // ══════════════════════════════════════════
+    // ÉTAPE 3 — MATCHING ET RECOMMANDATION
+    // ══════════════════════════════════════════
+    addChatSpinner('spin-analyze');
+    const s3=document.querySelector('#spin-analyze div:last-child');
+    if(s3)s3.innerHTML=sp()+' Étape 3/4 — Analyse croisée et recommandation…';
+
+    const existingTitles = state.articlesSummary.map(a=>'- '+a.title).join('\n');
+    const parentTopics = state.parentPageHeadings?.join('\n- ') || 'Non disponible';
+    const volumesList = volumes.slice(0,10).map(v=>v.keyword+' ('+v.search_volume+'/mois)').join('\n');
+    const gscOpportunities = gscAll.filter(r=>r.position>4&&r.position<20).map(r=>r.keys[0]+' pos.'+Math.round(r.position)).join(', ') || 'Aucune';
+
+    const recommendation = await callAnthropic(
+      'Tu es un expert SEO senior spécialisé en lithothérapie. Réponds UNIQUEMENT en JSON valide.',
+      'MISSION: Trouve le meilleur sujet satellite pour compléter ce cocon sémantique.\n\n' +
+      'BLOG: ' + parsed.blog_title + '\n\n' +
+      'ARTICLES EXISTANTS (à ne pas reproduire):\n' + existingTitles + '\n\n' +
+      'SUJETS PAGE MÈRE (cannibalisation interdite):\n- ' + parentTopics + '\n\n' +
+      'MOTS-CLÉS AVEC VOLUME (DataForSEO):\n' + volumesList + '\n\n' +
+      'OPPORTUNITÉS GSC (pos.5-20, quick wins):\n' + gscOpportunities + '\n\n' +
+      'RÈGLES:\n' +
+      '1. Choisis OBLIGATOIREMENT parmi les mots-clés avec volume réel\n' +
+      '2. Vérifie que ni la page mère ni les articles existants ne couvrent ce sujet\n' +
+      '3. Préfère un angle satellite précis (usage, technique, comparaison)\n' +
+      '4. Justifie en citant les données: volume, position GSC, différence avec articles existants\n\n' +
+      'Réponds en JSON: {' +
+      '"keyword": "mot-clé exact avec le meilleur potentiel",' +
+      '"volume": 0,' +
+      '"angle": "angle éditorial précis",' +
+      '"h2_plan": ["H2 1","H2 2","H2 3","H2 4"],' +
+      '"no_cannibal_proof": "preuve que ce sujet ne cannibalise pas",' +
+      '"why_best": "pourquoi ce sujet en priorité vs les autres"' +
+      '}',
+      1200
+    );
+
+    const rec = JSON.parse(recommendation.replace(/```json|```/g,'').trim());
+    state.keyword = rec.keyword;
+    state.h2Plan = rec.h2_plan || [];
+
+    removeChatSpinner('spin-analyze');
+
+    // Sélectionne produit bracelet et collection bracelet
+    const braceletProducts = state.products.filter(p=>
+      p.handle.includes('bracelet')||p.title.toLowerCase().includes('bracelet')
+    );
+    const product = braceletProducts.find(p=>
+      p.handle.includes(stone.slice(0,5))||p.title.toLowerCase().includes(stone.slice(0,5))
+    ) || braceletProducts[0] || state.products[0];
+    const collection = state.collections[0];
+    state.selectedProduct = product;
+    state.selectedCollection = collection;
+
+    addChatMessage(
+      '<strong>✅ Étape 3/4 — Recommandation</strong><br><br>' +
+      '<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px;line-height:1.8">' +
+      '<strong>🎯 Sujet recommandé</strong><br>' +
+      '→ <strong>' + rec.keyword + '</strong><br>' +
+      'Volume : <strong>' + (volumes.find(v=>v.keyword===rec.keyword)?.search_volume||rec.volume||'N/A') + '</strong>/mois<br>' +
+      'Angle : ' + rec.angle + '<br><br>' +
+      '<strong>📋 Plan H2 proposé</strong><br>' +
+      (rec.h2_plan||[]).map((h,i)=>'H2 '+(i+1)+' : '+h).join('<br>') + '<br><br>' +
+      '<strong>✅ Anti-cannibalisation</strong><br>' +
+      rec.no_cannibal_proof + '<br><br>' +
+      '<strong>💡 Pourquoi ce sujet ?</strong><br>' +
+      rec.why_best +
+      '</div>',
+      'bot'
+    );
+
+    // ══════════════════════════════════════════
+    // ÉTAPE 4 — BRIEF FINAL
+    // ══════════════════════════════════════════
+    addChatSpinner('spin-analyze');
+    const s4=document.querySelector('#spin-analyze div:last-child');
+    if(s4)s4.innerHTML=sp()+' Étape 4/4 — Finalisation du brief…';
+    await new Promise(r=>setTimeout(r,500));
+    removeChatSpinner('spin-analyze');
+
+    const domain = S.get('site_domain')||'mineralfrance.com';
+    state.targetLength = state.targetLength || 1400;
+
+    addChatMessage(
+      '<strong>📋 Brief final complet</strong><br><br>' +
+      '<div style="background:var(--ac2);border:1px solid #d4c4f0;border-radius:8px;padding:14px;font-size:13px;line-height:1.9">' +
+      '<strong>Titre suggéré :</strong> ' + rec.keyword + '<br>' +
+      '<strong>Longueur cible :</strong> ~' + state.targetLength + ' mots<br><br>' +
+      '<strong>Maillage interne :</strong><br>' +
+      '• Page mère → ' + (state.parentPage?.title||'N/A') + '<br>' +
+      '• Article précédent → ' + (state.prevArticle?.title||'Aucun') + '<br>' +
+      '• Produit → ' + (product?.title||'N/A') + '<br>' +
+      '• Collection → ' + (collection?.title||'N/A') + '<br><br>' +
+      '<strong>Liens autorité :</strong> mindat.org + wikipedia.org<br><br>' +
+      '<strong>Plan H2 :</strong><br>' +
+      (rec.h2_plan||[]).map((h,i)=>'• H2 '+(i+1)+' : '+h).join('<br>') +
+      '</div><br>' +
+      'Tapez <strong>oui</strong> pour lancer la rédaction, ou posez-moi des questions.',
+      'bot'
+    );
+
+    window.chatHistory = [{
+      role: 'assistant',
+      content: 'Analyse complète terminée. Sujet recommandé: "' + rec.keyword + '". ' +
+        'Articles existants: ' + arts.map(a=>a.title).join(', ') + '. ' +
+        'Page mère: ' + (state.parentPage?.title||'N/A') + '. ' +
+        'Sujets page mère: ' + (state.parentPageHeadings?.join(', ')||'N/A')
+    }];
     state.step = 'brief_ready';
-    state.targetLength = avgLen;
+    state.targetLength = state.targetLength || 1400;
 
-  } catch (e) {
+  } catch(e) {
     removeChatSpinner('spin-analyze');
     addChatMessage('Erreur lors de l\'analyse : ' + e.message, 'bot');
     state.step = 'idle';
