@@ -369,7 +369,7 @@ function connCard(id,icon,name,desc,configured,extraHtml,testable){
 }
 
 function rConn(){
-  const gOk=isGoogleTokenValid();
+  const gOk=isGoogleTokenValid()||!!S.get('google_service_account');
   document.getElementById('p-connections').innerHTML=
     '<div class="ph"><div class="pt">Connexions</div><div class="ps">Toutes vos intégrations API</div></div>'
     +'<div class="al al-w">⚠ &nbsp;Les clés sont stockées en localStorage — appareil personnel uniquement.</div>'
@@ -385,15 +385,10 @@ function rConn(){
       +'<button class="btn bp" id="save-anthropic">Enregistrer</button>')
 
     +connCard('google','G','Google','Search Console · Analytics 4 · Sheets',gOk,
-      '<div class="fg"><label class="fl">Google Client ID</label><input class="inp" id="cf-gci" type="text" value="'+(S.get('google_client_id')||GOOGLE_DEFAULTS.client_id)+'"><div class="fh">Pré-rempli — modifiable si vous créez un nouveau projet Google Cloud</div></div>'
-      +'<div class="fg"><label class="fl">Google Client Secret</label><input class="inp" id="cf-gcs" type="password" value="'+(S.get('google_client_secret')||GOOGLE_DEFAULTS.client_secret)+'"></div>'
-      +'<div class="fg"><label class="fl">GSC Site URL</label><input class="inp" id="cf-gsu" type="text" placeholder="https://mineralfrance.com/" value="'+(S.get('gsc_site_url')||'')+'"><div class="fh">URL exacte telle qu\'elle apparaît dans Search Console (avec le / final)</div></div>'
+      '<div class="fg"><label class="fl">GSC Site URL</label><input class="inp" id="cf-gsu" type="text" placeholder="https://mineralfrance.com/" value="'+(S.get('gsc_site_url')||'')+'"><div class="fh">URL exacte telle qu\'elle apparaît dans Search Console (avec le / final)</div></div>'
       +'<div class="fg"><label class="fl">GA4 Property ID</label><input class="inp" id="cf-ga4" type="text" placeholder="123456789" value="'+(S.get('ga4_property_id')||'')+'"><div class="fh">Google Analytics → Admin → Propriété → ID de la propriété</div></div>'
-      +'<div class="tw"><button class="btn bp" id="save-google">Enregistrer</button>'
-      +(gOk
-        ?'<button class="btn bg" onclick="googleLogout()">Déconnecter Google</button><span style="font-size:12.5px;color:var(--gn)">✓ Token actif</span>'
-        :'<button class="btn-google" onclick="googleLogin()"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>Se connecter avec Google</button>')
-      +'</div>')
+      +'<div class="fg"><label class="fl">Clé JSON du compte de service</label><textarea class="inp" id="cf-gsa" rows="4" placeholder='Colle le contenu du fichier JSON...' style="font-family:var(--mono);font-size:11px;resize:vertical">'+(S.get('google_service_account')||'')+'</textarea><div class="fh">Contenu complet du fichier JSON téléchargé depuis Google Cloud → Comptes de service</div></div>'
+      +'<div class="tw"><button class="btn bp" id="save-google">Enregistrer</button>'+(S.get('google_service_account')?'<span style="font-size:12.5px;color:var(--gn)">✓ Compte de service configuré</span>':'')+'</div>')
 
     +connCard('dataforseo','◉','DataForSEO','Volume de recherche, KD, SERP',!!S.get('dataforseo_login'),
       '<div class="fg"><label class="fl">Login</label><input class="inp" id="cf-dfl" type="text" placeholder="email@exemple.com" value="'+(S.get('dataforseo_login')||'')+'"></div>'
@@ -426,11 +421,22 @@ function rConn(){
   };
   document.getElementById('save-anthropic').onclick=()=>{S.set('anthropic_key',document.getElementById('cf-ak').value.trim());toast('Anthropic enregistré','ok');};
   document.getElementById('save-google').onclick=()=>{
-    S.set('google_client_id',    document.getElementById('cf-gci').value.trim());
-    S.set('google_client_secret',document.getElementById('cf-gcs').value.trim());
-    S.set('gsc_site_url',        document.getElementById('cf-gsu').value.trim());
-    S.set('ga4_property_id',     document.getElementById('cf-ga4').value.trim());
-    toast('Config Google enregistrée','ok');
+    S.set('gsc_site_url',    document.getElementById('cf-gsu').value.trim());
+    S.set('ga4_property_id', document.getElementById('cf-ga4').value.trim());
+    const gsaEl=document.getElementById('cf-gsa');
+    if(gsaEl){
+      const val=gsaEl.value.trim();
+      if(val){
+        try{JSON.parse(val);S.set('google_service_account',val);toast('Config Google enregistrée','ok');}
+        catch{toast('JSON invalide — vérifiez le fichier','err');}
+      } else {
+        S.set('gsc_site_url',document.getElementById('cf-gsu').value.trim());
+        S.set('ga4_property_id',document.getElementById('cf-ga4').value.trim());
+        toast('Config Google enregistrée','ok');
+      }
+    } else {
+      toast('Config Google enregistrée','ok');
+    }
   };
   document.getElementById('save-dataforseo').onclick=()=>{
     S.set('dataforseo_login',document.getElementById('cf-dfl').value.trim());
@@ -560,11 +566,63 @@ async function getKeywordData(keyword) {
 }
 
 // ─── GSC API ──────────────────────────────────────────────────
+// Génère un token d'accès depuis le compte de service via JWT
+async function getServiceAccountToken(scopes) {
+  const saJson = S.get('google_service_account');
+  if (!saJson) return null;
+  try {
+    const sa = JSON.parse(saJson);
+    const now = Math.floor(Date.now() / 1000);
+    const header = btoa(JSON.stringify({alg:'RS256',typ:'JWT'})).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    const payload = btoa(JSON.stringify({
+      iss: sa.client_email,
+      scope: scopes.join(' '),
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now
+    })).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+
+    // Import la clé privée
+    const pemContents = sa.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|
+/g,'');
+    const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8', binaryDer.buffer,
+      {name:'RSASSA-PKCS1-v1_5', hash:'SHA-256'},
+      false, ['sign']
+    );
+
+    // Signe le JWT
+    const signingInput = header + '.' + payload;
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5', cryptoKey,
+      new TextEncoder().encode(signingInput)
+    );
+    const sig = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    const jwt = signingInput + '.' + sig;
+
+    // Échange le JWT contre un access token
+    const r = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt
+    });
+    const data = await r.json();
+    return data.access_token || null;
+  } catch(e) {
+    console.error('Service account token error:', e);
+    return null;
+  }
+}
+
 async function getGscData(keyword) {
-  if (!isGoogleTokenValid()) return null;
   const siteUrl = S.get('gsc_site_url');
   if (!siteUrl) return null;
-  const token = S.get('google_access_token');
+  let token = S.get('google_access_token');
+  if (!token || !isGoogleTokenValid()) {
+    token = await getServiceAccountToken(['https://www.googleapis.com/auth/webmasters.readonly']);
+  }
+  if (!token) return null;
   const end = new Date().toISOString().split('T')[0];
   const start = new Date(Date.now() - 90*24*60*60*1000).toISOString().split('T')[0];
   try {
