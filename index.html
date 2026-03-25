@@ -136,6 +136,7 @@ const GOOGLE_SCOPES=[
 
 const S={
   get(k){try{const v=localStorage.getItem('litho_'+k);if(!v)return null;try{return JSON.parse(v)}catch{return v}}catch{return null}},
+  getRaw(k){try{return localStorage.getItem('litho_'+k)||null}catch{return null}},
   set(k,v){try{localStorage.setItem('litho_'+k,typeof v==='string'?v:JSON.stringify(v))}catch{}},
   has(){return!!(this.get('shopify_domain')&&this.get('shopify_token')&&this.get('proxy_url'))},
   hist(){return this.get('history')||[]},
@@ -270,7 +271,7 @@ function rDash(){
     +'</div>'
     +'<div class="card"><div class="ct">Statut des connexions</div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">'
-    +[['Shopify',cfg],['Anthropic',!!S.get('anthropic_key')],['Google',gOk],['DataForSEO',!!S.get('dataforseo_login')],['Obsidian',!!S.get('obsidian_api_key')]]
+    +[['Shopify',cfg],['Anthropic',!!S.get('anthropic_key')],['Google',gOk||!!S.getRaw('google_service_account')],['DataForSEO',!!S.get('dataforseo_login')],['Obsidian',!!S.get('obsidian_api_key')]]
       .map(([n,ok])=>'<div style="display:flex;align-items:center;gap:8px">'
         +'<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;background:'+(ok?'var(--gn)':'var(--bd)')+'"></span>'
         +'<div><div style="font-size:13px;font-weight:500">'+n+'</div>'
@@ -388,7 +389,7 @@ function rConn(){
       '<div class="fg"><label class="fl">GSC Site URL</label><input class="inp" id="cf-gsu" type="text" placeholder="https://mineralfrance.com/" value="'+(S.get('gsc_site_url')||'')+'"><div class="fh">URL exacte telle qu\'elle apparaît dans Search Console (avec le / final)</div></div>'
       +'<div class="fg"><label class="fl">GA4 Property ID</label><input class="inp" id="cf-ga4" type="text" placeholder="123456789" value="'+(S.get('ga4_property_id')||'')+'"><div class="fh">Google Analytics → Admin → Propriété → ID de la propriété</div></div>'
       +'<div class="fg"><label class="fl">Clé JSON du compte de service</label><textarea class="inp" id="cf-gsa" rows="4" placeholder="Colle le contenu du fichier JSON ici..." style="font-family:var(--mono);font-size:11px;resize:vertical">'+(S.get('google_service_account')||'')+'</textarea><div class="fh">Contenu complet du fichier JSON téléchargé depuis Google Cloud → Comptes de service</div></div>'
-      +'<div class="tw"><button class="btn bp" id="save-google">Enregistrer</button>'+(S.get('google_service_account')?'<span style="font-size:12.5px;color:var(--gn)">✓ Compte de service configuré</span>':'')+'</div>')
+      +'<div class="tw"><button class="btn bp" id="save-google">Enregistrer</button>'+(S.getRaw('google_service_account')?'<span style="font-size:12.5px;color:var(--gn)">✓ Compte de service configuré</span>':'')+'</div>')
 
     +connCard('dataforseo','◉','DataForSEO','Volume de recherche, KD, SERP',!!S.get('dataforseo_login'),
       '<div class="fg"><label class="fl">Login</label><input class="inp" id="cf-dfl" type="text" placeholder="email@exemple.com" value="'+(S.get('dataforseo_login')||'')+'"></div>'
@@ -427,7 +428,13 @@ function rConn(){
     if(gsaEl){
       const val=gsaEl.value.trim();
       if(val){
-        try{JSON.parse(val);S.set('google_service_account',val);toast('Config Google enregistrée','ok');}
+        try{
+          JSON.parse(val); // Valide le JSON
+          localStorage.setItem('litho_google_service_account', val); // Stocke en string brute
+          S.set('gsc_site_url',document.getElementById('cf-gsu').value.trim());
+          S.set('ga4_property_id',document.getElementById('cf-ga4').value.trim());
+          toast('Config Google enregistrée','ok');
+        }
         catch{toast('JSON invalide — vérifiez le fichier','err');}
       } else {
         S.set('gsc_site_url',document.getElementById('cf-gsu').value.trim());
@@ -568,7 +575,7 @@ async function getKeywordData(keyword) {
 // ─── GSC API ──────────────────────────────────────────────────
 // Génère un token d'accès depuis le compte de service via JWT
 async function getServiceAccountToken(scopes) {
-  const saJson = S.get('google_service_account');
+  const saJson = S.getRaw('google_service_account');
   if (!saJson) return null;
   try {
     const sa = JSON.parse(saJson);
@@ -668,19 +675,32 @@ async function exportToObsidian(articles, pages, blogs) {
   const files = [];
   const domain = S.get('site_domain') || 'mineralfrance.com';
 
-  // Index général
-  let indexMd = '# Cocon Sémantique — Minéral France\n\n';
-  indexMd += '> Exporté le ' + new Date().toLocaleDateString('fr-FR') + '\n\n';
-  indexMd += '## Pierres\n\n';
+  // Filtre uniquement les pages pierres (pas les CGV, politique etc)
+  const PIERRES_EXPORT = ["agate","aigue-marine","amazonite","amethyste","apatite-bleue",
+    "aventurine-bleue","calcedoine","citrine","cornaline","cristal-de-roche","diamant",
+    "emeraude","grenat","hematite","howlite","jade","jaspe-rouge","kunzite","labradorite",
+    "lapis-lazuli","malachite","obsidienne","oeil-de-faucon","oeil-de-taureau","oeil-de-tigre",
+    "pierre-de-lave","pierre-de-lune","pierre-de-soleil","quartz-rose","rhodochrosite",
+    "rhodonite","rubis","saphir","selenite","sodalite","tourmaline-noire"];
+  const stonePages = pages.filter(p => PIERRES_EXPORT.includes(p.handle));
 
-  pages.forEach(page => {
-    const blogForPage = blogs.find(b => b.handle.includes(page.handle.split('-')[0]));
-    indexMd += '- [[' + page.title + ']]\n';
-    files.push({
-      name: page.handle + '.md',
-      content: generatePageMd(page, articles, domain)
-    });
+  // Index général
+  let indexMd = '---\ntitle: INDEX\ntype: index\n---\n\n';
+  indexMd += '# Cocon Sémantique — Minéral France\n\n';
+  indexMd += '> Exporté le ' + new Date().toLocaleDateString('fr-FR') + '\n\n';
+  indexMd += '## Pages mères (' + stonePages.length + ' pierres)\n\n';
+  stonePages.forEach(page => {
+    const count = articles.filter(a => a.body_html && a.body_html.includes('/pages/' + page.handle)).length;
+    indexMd += '- [[' + page.handle + ']] — ' + page.title + ' (' + count + ' satellites)\n';
+    files.push({ name: page.handle + '.md', content: generatePageMd(page, articles, domain) });
   });
+
+  // Blogs généralistes
+  const genBlogs = blogs.filter(b => !PIERRES_EXPORT.some(p => b.handle.includes(p.slice(0,5))));
+  if (genBlogs.length) {
+    indexMd += '\n## Blogs généralistes\n\n';
+    genBlogs.forEach(b => { indexMd += '- ' + b.title + '\n'; });
+  }
 
   files.unshift({ name: 'INDEX.md', content: indexMd });
 
@@ -697,40 +717,88 @@ async function exportToObsidian(articles, pages, blogs) {
 }
 
 function generatePageMd(page, articles, domain) {
-  let md = '---\ntitle: ' + page.title + '\ntype: page-mere\nurl: https://' + domain + '/pages/' + page.handle + '\n---\n\n';
-  md += '# ' + page.title + '\n\n';
-  md += '**URL** : https://' + domain + '/pages/' + page.handle + '\n\n';
+  // Trouve les articles satellites (ceux qui linkent vers cette page mère)
+  const related = articles.filter(a => 
+    (a.body_html && a.body_html.includes('/pages/' + page.handle)) ||
+    (a.blog_handle && a.blog_handle.includes(page.handle.slice(0,5)))
+  );
+  related.sort((a,b) => new Date(a.published_at||a.created_at) - new Date(b.published_at||b.created_at));
+  
+  let md = '---\n';
+  md += 'title: ' + page.title + '\n';
+  md += 'type: page-mere\n';
+  md += 'url: https://' + domain + '/pages/' + page.handle + '\n';
+  md += 'satellites: ' + related.length + '\n';
+  md += '---\n\n';
+  md += '# ' + page.title + ' (Page mère)\n\n';
+  md += '**URL** : [' + page.title + '](https://' + domain + '/pages/' + page.handle + ')\n';
+  md += '**Satellites** : ' + related.length + ' article' + (related.length > 1 ? 's' : '') + '\n\n';
+  md += '## Cocon sémantique\n\n';
+  md += '- [[INDEX]] ← Page racine\n\n';
   md += '## Articles satellites\n\n';
-  const related = articles.filter(a => {
-    const blogHandle = a.blog_handle || '';
-    return blogHandle.includes(page.handle.replace(/-/g, '').slice(0, 5));
+  related.forEach((a, i) => {
+    const prev = i > 0 ? related[i-1] : null;
+    md += (i+1) + '. [[' + a.handle + ']] — ' + (a.published_at ? '✅' : '📝') + ' ' + a.title + '\n';
+    if (prev) md += '   ← lié à [[' + prev.handle + ']]\n';
   });
-  related.forEach(a => { md += '- [[' + (a.handle || a.title) + ']] — ' + (a.published_at ? 'Publié' : 'Brouillon') + '\n'; });
+  md += '\n';
   return md;
 }
 
 function generateArticleMd(a, pages, domain) {
-  let md = '---\ntitle: ' + (a.title || '').replace(/:/g, '-') + '\nstatut: ' + (a.published_at ? 'publié' : 'brouillon') + '\ndate: ' + (a.published_at || a.created_at || '') + '\n---\n\n';
-  md += '# ' + a.title + '\n\n';
-  md += '**URL** : https://' + domain + '/blogs/' + (a.blog_handle || 'blog') + '/' + a.handle + '\n\n';
+  // Trouve la page mère depuis les liens dans l'article
+  let parentLink = '';
   if (a.body_html) {
-    const text = a.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
-    md += '## Extrait\n\n' + text + '...\n\n';
+    const pageHandles = pages.map(p => p.handle);
+    for (const ph of pageHandles) {
+      if (a.body_html.includes('/pages/' + ph)) {
+        const page = pages.find(p => p.handle === ph);
+        if (page) { parentLink = '\n- Page mère : [[' + page.handle + ']]'; break; }
+      }
+    }
   }
+  let md = '---\n';
+  md += 'title: ' + (a.title || '').replace(/:/g, '-') + '\n';
+  md += 'statut: ' + (a.published_at ? 'publié' : 'brouillon') + '\n';
+  md += 'date: ' + ((a.published_at || a.created_at || '').split('T')[0]) + '\n';
+  md += 'blog: ' + (a.blog_title || '') + '\n';
+  md += 'url: https://' + domain + '/blogs/' + (a.blog_handle || 'blog') + '/' + a.handle + '\n';
+  md += '---\n\n';
+  md += '# ' + a.title + '\n\n';
+  md += '**URL** : [' + a.title + '](https://' + domain + '/blogs/' + (a.blog_handle || 'blog') + '/' + a.handle + ')\n';
+  md += '**Blog** : ' + (a.blog_title || '') + '\n';
+  md += '**Statut** : ' + (a.published_at ? '✅ Publié' : '📝 Brouillon') + '\n';
+  md += '**Mots** : ' + wc(a.body_html || '') + '\n';
+  if (parentLink) md += parentLink + '\n';
+  md += '\n## Liens internes détectés\n\n';
+  if (a.body_html) {
+    const links = [...a.body_html.matchAll(/href="([^"]+)"/g)].map(m => m[1]).filter(l => l.includes(domain) || l.startsWith('/'));
+    const internalLinks = [...new Set(links)].slice(0, 10);
+    internalLinks.forEach(l => { md += '- ' + l + '\n'; });
+  }
+  md += '\n';
   return md;
 }
 
-function downloadObsidianZip(files) {
-  // Télécharge chaque fichier individuellement dans un dossier
-  // Pour un vrai ZIP on utiliserait JSZip — ici on télécharge un fichier récapitulatif
-  let allContent = '';
-  files.forEach(f => { allContent += '\n\n=== ' + f.name + ' ===\n\n' + f.content; });
-  const blob = new Blob([allContent], { type: 'text/markdown' });
+async function downloadObsidianZip(files) {
+  // Charge JSZip depuis CDN
+  if (!window.JSZip) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  const zip = new window.JSZip();
+  const folder = zip.folder('cocon-mineralfrance');
+  files.forEach(f => folder.file(f.name, f.content));
+  const blob = await zip.generateAsync({type:'blob'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'cocon-obsidian-export.md'; a.click();
+  a.href = url; a.download = 'cocon-obsidian.zip'; a.click();
   URL.revokeObjectURL(url);
-  toast('Export Obsidian téléchargé', 'ok');
+  toast('Export Obsidian ZIP téléchargé — dézippe dans ton vault', 'ok');
 }
 
 // ─── MODULE CRÉER UN ARTICLE ──────────────────────────────────
