@@ -387,7 +387,7 @@ function rConn(){
     +connCard('google','G','Google','Search Console · Analytics 4 · Sheets',gOk,
       '<div class="fg"><label class="fl">GSC Site URL</label><input class="inp" id="cf-gsu" type="text" placeholder="https://mineralfrance.com/" value="'+(S.get('gsc_site_url')||'')+'"><div class="fh">URL exacte telle qu\'elle apparaît dans Search Console (avec le / final)</div></div>'
       +'<div class="fg"><label class="fl">GA4 Property ID</label><input class="inp" id="cf-ga4" type="text" placeholder="123456789" value="'+(S.get('ga4_property_id')||'')+'"><div class="fh">Google Analytics → Admin → Propriété → ID de la propriété</div></div>'
-      +'<div class="fg"><label class="fl">Clé JSON du compte de service</label><textarea class="inp" id="cf-gsa" rows="4" placeholder='Colle le contenu du fichier JSON...' style="font-family:var(--mono);font-size:11px;resize:vertical">'+(S.get('google_service_account')||'')+'</textarea><div class="fh">Contenu complet du fichier JSON téléchargé depuis Google Cloud → Comptes de service</div></div>'
+      +'<div class="fg"><label class="fl">Clé JSON du compte de service</label><textarea class="inp" id="cf-gsa" rows="4" placeholder="Colle le contenu du fichier JSON ici..." style="font-family:var(--mono);font-size:11px;resize:vertical">'+(S.get('google_service_account')||'')+'</textarea><div class="fh">Contenu complet du fichier JSON téléchargé depuis Google Cloud → Comptes de service</div></div>'
       +'<div class="tw"><button class="btn bp" id="save-google">Enregistrer</button>'+(S.get('google_service_account')?'<span style="font-size:12.5px;color:var(--gn)">✓ Compte de service configuré</span>':'')+'</div>')
 
     +connCard('dataforseo','◉','DataForSEO','Volume de recherche, KD, SERP',!!S.get('dataforseo_login'),
@@ -583,8 +583,7 @@ async function getServiceAccountToken(scopes) {
     })).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
 
     // Import la clé privée
-    const pemContents = sa.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|
-/g,'');
+    const pemContents = sa.private_key.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g,'');
     const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
     const cryptoKey = await crypto.subtle.importKey(
       'pkcs8', binaryDer.buffer,
