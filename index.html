@@ -962,7 +962,7 @@ async function analyzeRequest(msg) {
 
     // 3. Demande à l'IA d'analyser la requête et choisir le blog/mot-clé
     const blogList = blogs.map(b => b.title + ' (handle: ' + b.handle + ', id: ' + b.id + ')').join('\n');
-    const existingTitlesList = arts.slice(0,20).map(a => '- ' + a.title).join('\n');
+    const existingTitlesList = (state.articles||[]).slice(0,20).map(a => '- ' + a.title).join('\n');
     const parentHeadingsList = state.parentPageHeadings?.join(', ') || 'Non chargée';
     const relatedKwList = state.relatedKeywords?.slice(0,10).map(k => k.keyword + ' (' + (k.search_volume||0) + '/mois)').join(', ') || '';
     
