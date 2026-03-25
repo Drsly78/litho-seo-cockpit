@@ -523,11 +523,24 @@ function rHist(){
   document.getElementById('p-history').innerHTML=
     '<div class="ph"><div class="pt">Historique</div><div class="ps">'+h.length+' entrée'+(h.length>1?'s':'')+'</div></div>'
     +(!h.length?'<div style="text-align:center;padding:48px;color:var(--t3)"><div style="font-size:28px;margin-bottom:10px;opacity:.3">◷</div>Aucune activité pour l\'instant</div>'
-    :'<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Action</th><th>Titre</th></tr></thead><tbody>'
-    +h.map(e=>'<tr><td style="color:var(--t2);font-size:13px;white-space:nowrap">'+fd(e.date)+'</td>'
+    :'<div style="display:flex;justify-content:flex-end;margin-bottom:10px">'
+    +'<button class="btn bg2btn" style="font-size:12.5px;color:var(--rd)" onclick="if(confirm(\'Effacer tout l\'historique ?\')){{S.set(\'history\',[]);rHist();}}">🗑 Tout effacer</button></div>'
+    +'<div class="tbl-wrap"><table><thead><tr><th>Date</th><th>Action</th><th>Titre</th><th></th></tr></thead><tbody>'
+    +h.map((e,i)=>'<tr>'
+      +'<td style="color:var(--t2);font-size:13px;white-space:nowrap">'+fd(e.date)+'</td>'
       +'<td><span class="bge '+(e.type==='create'?'b-purple':'b-gray')+'">'+(e.type==='create'?'Créé':'Optimisé')+'</span></td>'
-      +'<td>'+tr(e.title,65)+'</td></tr>').join('')
+      +'<td>'+tr(e.title,55)+'</td>'
+      +'<td><button onclick="deleteHist('+i+')" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:16px;padding:0 4px" title="Supprimer">✕</button></td>'
+      +'</tr>').join('')
     +'</tbody></table></div>');
+}
+
+function deleteHist(index) {
+  const h = S.hist();
+  h.splice(index, 1);
+  S.set('history', h);
+  rHist();
+  toast('Entrée supprimée');
 }
 
 function rPH(id,title,sub,icon){
@@ -949,10 +962,24 @@ async function analyzeRequest(msg) {
 
     // 3. Demande à l'IA d'analyser la requête et choisir le blog/mot-clé
     const blogList = blogs.map(b => b.title + ' (handle: ' + b.handle + ', id: ' + b.id + ')').join('\n');
+    const existingTitlesList = arts.slice(0,20).map(a => '- ' + a.title).join('\n');
+    const parentHeadingsList = state.parentPageHeadings?.join(', ') || 'Non chargée';
+    const relatedKwList = state.relatedKeywords?.slice(0,10).map(k => k.keyword + ' (' + (k.search_volume||0) + '/mois)').join(', ') || '';
+    
     const analysis = await callAnthropic(
-      'Tu es un assistant SEO. Réponds UNIQUEMENT en JSON valide, aucun texte avant ou après.',
-      'Message utilisateur: "' + msg + '"\n\nBlogs disponibles:\n' + blogList + '\n\nRéponds en JSON: {"keyword": "mot-clé principal déduit", "blog_id": "id du blog le plus pertinent", "blog_title": "titre du blog", "blog_handle": "handle du blog", "suggestion": "explication courte de ton choix"}',
-      500
+      'Tu es un expert SEO spécialisé en lithothérapie. Réponds UNIQUEMENT en JSON valide, aucun texte avant ou après.',
+      'Message utilisateur: "' + msg + '"\n\n' +
+      'Blogs disponibles:\n' + blogList + '\n\n' +
+      'Articles déjà publiés dans ce blog:\n' + existingTitlesList + '\n\n' +
+      'Sujets couverts par la PAGE MÈRE (à NE PAS répéter pour éviter la cannibalisation):\n' + parentHeadingsList + '\n\n' +
+      'Mots-clés connexes disponibles (DataForSEO):\n' + relatedKwList + '\n\n' +
+      'RÈGLES IMPORTANTES:\n' +
+      '1. Choisis un sujet SATELLITE spécifique — jamais un sujet déjà couvert par la page mère\n' +
+      '2. Le sujet doit compléter le cocon, pas concurrencer la page mère\n' +
+      '3. Préfère les angles pratiques, spécifiques, avec une intention de recherche claire\n' +
+      '4. Vérifie que le sujet n\047est pas déjà traité dans les articles existants\n\n' +
+      'Réponds en JSON: {"keyword": "mot-clé satellite précis et spécifique", "blog_id": "id du blog", "blog_title": "titre du blog", "blog_handle": "handle du blog", "suggestion": "pourquoi ce sujet est pertinent et comment il complète le cocon sans cannibaliser"}',
+      800
     );
 
     let parsed;
@@ -974,14 +1001,58 @@ async function analyzeRequest(msg) {
     const stoneName = blogHandle.replace('guide-de-la', '').replace('guide-du', '').replace('guide-de-l', '').replace('guide-des', '').replace(/-/g, '');
     state.parentPage = pages.find(p => p.handle.replace(/-/g, '').includes(stoneName.slice(0, 5))) || null;
 
-    // 6. DataForSEO
+    // 5b. Charge le contenu de la page mère pour analyse anti-cannibalisation
+    removeChatSpinner('spin-analyze');
+    addChatSpinner('spin-analyze');
+    document.querySelector('#spin-analyze div:last-child').innerHTML = sp() + ' Analyse de la page mère…';
+    
+    if (state.parentPage) {
+      try {
+        const parentData = await sReq('/admin/api/2024-01/pages/' + state.parentPage.id + '.json');
+        if (parentData.page) {
+          state.parentPageContent = parentData.page.body_html || '';
+          // Extrait les H2/H3 de la page mère pour détecter les sujets couverts
+          const headings = [...(state.parentPageContent.matchAll(/<h[23][^>]*>([^<]+)<\/h[23]>/gi))].map(m => m[1].trim());
+          state.parentPageHeadings = headings;
+        }
+      } catch(_) {}
+    }
+
+    // 5c. Charge les titres ET extraits des articles existants
+    state.articlesSummary = arts.slice(0, 15).map(a => ({
+      title: a.title,
+      excerpt: a.body_html ? a.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) : ''
+    }));
+
+    // 6. DataForSEO - analyse approfondie
+    removeChatSpinner('spin-analyze');
+    addChatSpinner('spin-analyze');
+    document.querySelector('#spin-analyze div:last-child').innerHTML = sp() + ' Analyse SERP DataForSEO…';
+    
     const serpResult = await getSerp(parsed.keyword);
     const kwResult = await getKeywordData(parsed.keyword);
+    
+    // Récupère aussi les suggestions de mots-clés connexes
+    const relatedKws = await dfsReq('/v3/keywords_data/google_ads/keywords_for_keywords/live', [{
+      keywords: [parsed.keyword],
+      language_code: 'fr',
+      location_code: 2250,
+      limit: 10
+    }]);
+    state.relatedKeywords = relatedKws?.tasks?.[0]?.result || [];
     state.serpData = { serp: serpResult, kw: kwResult };
 
-    // 7. GSC
+    // 7. GSC - analyse approfondie
+    removeChatSpinner('spin-analyze');
+    addChatSpinner('spin-analyze');
+    document.querySelector('#spin-analyze div:last-child').innerHTML = sp() + ' Analyse Google Search Console…';
+    
     const gscResult = await getGscData(parsed.keyword);
+    // Récupère aussi les requêtes GSC pour la pierre en général
+    const stoneTerm = parsed.keyword.split(' ')[0];
+    const gscBroad = await getGscData(stoneTerm);
     state.gscData = gscResult;
+    state.gscBroad = gscBroad;
 
     removeChatSpinner('spin-analyze');
 
@@ -1041,27 +1112,72 @@ async function generateArticle() {
     const domain = S.get('site_domain') || 'mineralfrance.com';
 
     // Construit le message utilisateur avec toutes les données
-    const serpSummary = state.serpData?.serp ? 'Top résultats SERP disponibles, longueur moyenne ~' + state.targetLength + ' mots' : 'Données SERP non disponibles';
-    const gscSummary = state.gscData?.rows ? 'Positions GSC : ' + state.gscData.rows.slice(0, 3).map(r => r.keys[0] + ' pos.' + Math.round(r.position)).join(', ') : 'Données GSC non disponibles';
+    // Construit un résumé SERP détaillé
+    const serpItems = state.serpData?.serp?.items?.filter(i => i.type === 'organic').slice(0, 5) || [];
+    const serpSummary = serpItems.length > 0 
+      ? 'Top ' + serpItems.length + ' résultats:\n' + serpItems.map((i,n) => (n+1)+'. ' + i.domain + ' — titre: "' + (i.title||'').slice(0,60) + '"').join('\n')
+      : 'Données SERP non disponibles';
+    
+    // Résumé GSC complet
+    const gscRows = [...(state.gscData?.rows||[]), ...(state.gscBroad?.rows||[])];
+    const gscUnique = gscRows.filter((r,i,a) => a.findIndex(x=>x.keys[0]===r.keys[0])===i).slice(0,10);
+    const gscSummary = gscUnique.length > 0
+      ? gscUnique.map(r => '"' + r.keys[0] + '" → pos.' + Math.round(r.position) + ' (' + r.impressions + ' impressions, CTR ' + (r.ctr*100).toFixed(1) + '%)').join('\n')
+      : 'Aucune donnée GSC disponible';
+    
+    // Mots-clés secondaires depuis DataForSEO
+    const secondaryKws = state.relatedKeywords?.slice(0,8).map(k => k.keyword).join(', ') || '';
+    
+    // Résumé des sujets déjà couverts (anti-cannibalisation)
+    const coveredTopics = [
+      ...(state.parentPageHeadings || []),
+      ...state.articlesSummary.map(a => a.title)
+    ].join('\n- ');
+    
+    // Extraits des articles existants pour contexte
+    const articlesContext = state.articlesSummary.slice(0,5).map(a => 
+      '• ' + a.title + (a.excerpt ? ':\n  "' + a.excerpt.slice(0,150) + '..."' : '')
+    ).join('\n');
 
-    const userMessage = `IMPORTANT: Réponds OBLIGATOIREMENT avec les marqueurs ---ARTICLE--- ---FICHE_TECHNIQUE--- ---CHECKLIST--- exactement comme défini. L'article doit être en HTML pur, jamais en Markdown.
+    const userMessage = `CONSIGNES STRICTES :
+1. Réponds OBLIGATOIREMENT avec les marqueurs ---ARTICLE--- ---FICHE_TECHNIQUE--- ---CHECKLIST---
+2. L'article DOIT être en HTML PUR — aucun Markdown (#, **, etc.)
+3. Commence le HTML directement par un <h2>, jamais de <h1>
+4. NE PAS reproduire les sujets déjà couverts listés ci-dessous
 
-Rédige un article optimisé SEO avec les données suivantes :
+═══ DONNÉES DE RÉDACTION ═══
 
 MOT-CLÉ CIBLE : ${state.keyword}
+MOTS-CLÉS SECONDAIRES : ${secondaryKws}
 BLOG : ${state.blog}
-LONGUEUR CIBLE : ${state.targetLength} mots
+LONGUEUR CIBLE : ${state.targetLength} mots (basée sur analyse SERP)
 
-ANALYSE SERP : ${serpSummary}
-DONNÉES GSC : ${gscSummary}
+═══ ANALYSE SERP (TOP CONCURRENTS) ═══
+${serpSummary}
 
-MAILLAGE INTERNE :
-- Page mère : https://${domain}/pages/${state.parentPage?.handle || 'index-des-pierres-proprietes-et-vertus'} — ${state.parentPage?.title || 'Index des pierres'}
-- Article précédent : https://${domain}/blogs/${state.blogId}/${state.prevArticle?.handle || ''} — ${state.prevArticle?.title || 'Premier article du blog'}
-- Produit : ${product ? 'https://' + domain + '/products/' + product.handle + ' — ' + product.title : 'Non disponible'}
-- Collection : ${collection ? 'https://' + domain + '/collections/' + collection.handle + ' — ' + collection.title : 'Non disponible'}
+═══ DONNÉES GOOGLE SEARCH CONSOLE ═══
+${gscSummary}
 
-Respecte scrupuleusement le format de réponse défini dans le prompt système (---ARTICLE--- / ---FICHE_TECHNIQUE--- / ---CHECKLIST---).`;
+═══ ANTI-CANNIBALISATION ═══
+Sujets déjà couverts (à NE PAS reprendre) :
+- ${coveredTopics}
+
+Extraits des 5 derniers articles pour cohérence éditoriale :
+${articlesContext}
+
+═══ MAILLAGE INTERNE ═══
+- Page mère : https://${domain}/pages/${state.parentPage?.handle || 'index-des-pierres-proprietes-et-vertus'} — "${state.parentPage?.title || 'Index des pierres'}"
+- Article précédent : https://${domain}/blogs/${state.blogId}/${state.prevArticle?.handle || ''} — "${state.prevArticle?.title || 'Premier article du blog'}"
+- Produit à promouvoir : ${product ? product.title + ' — https://' + domain + '/products/' + product.handle : 'Non disponible'}
+- Image produit : ${product?.images?.[0]?.src || 'Non disponible'}
+- Collection : ${collection ? collection.title + ' — https://' + domain + '/collections/' + collection.handle : 'Non disponible'}
+
+═══ RÉGLAGES ÉDITORIAUX ═══
+Ton : ${S.get('editorial_tone') || 'Expert, pédagogique, vouvoiement'}
+Domaine : ${domain}
+Auteur : ${S.get('author_name') || 'Jade Litho'}
+
+Génère maintenant l'article complet avec la fiche technique et la checklist.`;
 
     const result = await callAnthropic(systemPrompt, userMessage, 8000);
 
