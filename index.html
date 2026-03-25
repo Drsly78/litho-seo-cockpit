@@ -1032,6 +1032,9 @@ async function analyzeRequest(msg) {
   state.step = 'analyzing';
   window.chatHistory = [];
 
+  // Carte des pierres depuis l'index mineralfrance.com
+  const PIERRES_MAP = {"agate": "agate", "aigue-marine": "aigue-marine", "amazonite": "amazonite", "amethyste": "amethyste", "apatite": "apatite-bleue", "aventurine": "aventurine-bleue", "calcedoine": "calcedoine", "citrine": "citrine", "cornaline": "cornaline", "cristal": "cristal-de-roche", "diamant": "diamant", "emeraude": "emeraude", "grenat": "grenat", "hematite": "hematite", "howlite": "howlite", "jade": "jade", "jaspe": "jaspe-rouge", "kunzite": "kunzite", "labradorite": "labradorite", "lapis": "lapis-lazuli", "malachite": "malachite", "obsidienne": "obsidienne", "oeil-de-faucon": "oeil-de-faucon", "oeil-de-taureau": "oeil-de-taureau", "oeil-de-tigre": "oeil-de-tigre", "lave": "pierre-de-lave", "lune": "pierre-de-lune", "soleil": "pierre-de-soleil", "quartz": "quartz-rose", "rhodochrosite": "rhodochrosite", "rhodonite": "rhodonite", "rubis": "rubis", "saphir": "saphir", "selenite": "selenite", "sodalite": "sodalite", "tourmaline": "tourmaline-noire"};
+
   // ══════════════════════════════════════════
   // ÉTAPE 1 — ANALYSE DU SITE
   // ══════════════════════════════════════════
@@ -1051,9 +1054,8 @@ async function analyzeRequest(msg) {
     const blogs = blogsData.blogs || [];
     state.products = prodsData.products || [];
     // Filtre uniquement les collections bracelets
-    state.collections = (collsData.custom_collections || []).filter(c =>
-      c.handle.includes('bracelet') || c.title.toLowerCase().includes('bracelet')
-    );
+    // Garde toutes les collections (le filtre bracelet se fait au moment du choix)
+    state.collections = collsData.custom_collections || [];
     const pages = pagesData.pages || [];
 
     // Identifie le blog cible via l'IA
@@ -1079,11 +1081,23 @@ async function analyzeRequest(msg) {
       excerpt: a.body_html ? a.body_html.replace(/<[^>]+>/g,' ').replace(/[ ]+/g,' ').trim().slice(0,150) : ''
     }));
 
-    // Charge la page mère et ses H2/H3
-    const stoneName = parsed.stone || parsed.blog_handle.replace(/guide-de-la?-?|guide-du-?|guide-de-l?-?|guide-des-?|guide-/g,'').replace(/^l[ae]?-/,'');
-    state.parentPage = pages.find(p => p.handle === stoneName) ||
-      pages.find(p => p.handle.includes(stoneName.slice(0,6))) ||
-      pages.find(p => stoneName.length>4 && p.handle.startsWith(stoneName.slice(0,5))) || null;
+    // Détecte la page mère via la carte des pierres (index mineralfrance.com)
+    const stoneName = parsed.stone || parsed.blog_handle
+      .replace(/guide-de-la?-?/g,'').replace(/guide-du-?/g,'').replace(/guide-de-l?-?/g,'')
+      .replace(/guide-des-?/g,'').replace(/guide-?/g,'').replace(/^l[ae]?-/,'').replace(/^-/,'');
+    
+    // Cherche dans la carte des pierres
+    const stoneKey = Object.keys(PIERRES_MAP).find(k => 
+      stoneName.includes(k) || k.includes(stoneName.slice(0,5))
+    );
+    const parentHandle = stoneKey ? PIERRES_MAP[stoneKey] : stoneName;
+    
+    // Trouve la page dans Shopify via le handle exact
+    state.parentPage = pages.find(p => p.handle === parentHandle) ||
+      pages.find(p => p.handle === stoneName) ||
+      pages.find(p => p.handle.includes(stoneName.replace(/-/g,'').slice(0,6))) || null;
+    
+    console.log('Stone:', stoneName, '→ Handle:', parentHandle, '→ Page:', state.parentPage?.title);
 
     if (state.parentPage) {
       const s1b=document.querySelector('#spin-analyze div:last-child');
@@ -1111,12 +1125,12 @@ async function analyzeRequest(msg) {
       '<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px;line-height:1.8">' +
       '<strong>📚 Blog analysé : ' + parsed.blog_title + '</strong><br>' +
       '• ' + publishedArts.length + ' articles publiés, ' + draftArts.length + ' brouillons<br>' +
-      '• Articles publiés :<br>' + publishedArts.slice(0,8).map(a=>'  → '+a.title).join('<br>') + '<br><br>' +
+      '• Articles publiés :<br>' + publishedArts.map(a=>'  → '+a.title).join('<br>') + '<br><br>' +
       '<strong>📄 Page mère : ' + (state.parentPage ? state.parentPage.title : '⚠ Non détectée') + '</strong><br>' +
       'Sujets couverts (à ne pas cannibaliser) :<br>' + topicsInPage + '<br><br>' +
       '<strong>🛍 Ressources disponibles</strong><br>' +
       '• Bracelets disponibles : ' + state.products.filter(p=>p.handle.includes('bracelet')||p.title.toLowerCase().includes('bracelet')).length + '<br>' +
-      '• Collections bracelets : ' + state.collections.length +
+      '• Collections disponibles : ' + state.collections.filter(c=>!c.handle.includes('collier')&&!c.title.toLowerCase().includes('collier')).length +
       '</div>',
       'bot'
     );
@@ -1280,13 +1294,25 @@ async function analyzeRequest(msg) {
     removeChatSpinner('spin-analyze');
 
     // Sélectionne produit bracelet et collection bracelet
+    // Sélectionne le bracelet de la pierre (priorité : bracelet + pierre)
     const braceletProducts = state.products.filter(p=>
       p.handle.includes('bracelet')||p.title.toLowerCase().includes('bracelet')
     );
     const product = braceletProducts.find(p=>
       p.handle.includes(stone.slice(0,5))||p.title.toLowerCase().includes(stone.slice(0,5))
-    ) || braceletProducts[0] || state.products[0];
-    const collection = state.collections[0];
+    ) || braceletProducts.find(p=>p.title.toLowerCase().includes(parsed.stone?.slice(0,5)||stone.slice(0,5)))
+    || braceletProducts[0] || state.products[0];
+    
+    // Sélectionne la collection de la pierre (pas de collection collier)
+    const stoneCollections = state.collections.filter(c=>
+      !c.handle.includes('collier') && !c.title.toLowerCase().includes('collier') &&
+      !c.handle.includes('pendentif') && !c.title.toLowerCase().includes('pendentif')
+    );
+    const collection = stoneCollections.find(c=>
+      c.handle.includes(stone.slice(0,5))||c.title.toLowerCase().includes(stone.slice(0,5))
+    ) || stoneCollections.find(c=>
+      c.handle.includes(parsed.stone?.slice(0,4)||stone.slice(0,4))
+    ) || stoneCollections[0];
     state.selectedProduct = product;
     state.selectedCollection = collection;
 
