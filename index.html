@@ -995,6 +995,10 @@ async function analyzeRequest(msg) {
     arts.sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
     state.articles = arts;
     state.prevArticle = arts.find(a => a.published_at) || null;
+    state.articlesSummary = arts.slice(0, 15).map(a => ({
+      title: a.title,
+      excerpt: a.body_html ? a.body_html.replace(/<[^>]+>/g, ' ').replace(/[ ]+/g, ' ').trim().slice(0, 200) : ''
+    }));
 
     // 5. Trouve la page mère
     const blogHandle = parsed.blog_handle || '';
@@ -1017,12 +1021,6 @@ async function analyzeRequest(msg) {
         }
       } catch(_) {}
     }
-
-    // 5c. Charge les titres ET extraits des articles existants
-    state.articlesSummary = arts.slice(0, 15).map(a => ({
-      title: a.title,
-      excerpt: a.body_html ? a.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) : ''
-    }));
 
     // 6. DataForSEO - analyse approfondie
     removeChatSpinner('spin-analyze');
