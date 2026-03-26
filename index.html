@@ -51,8 +51,10 @@ main{flex:1;overflow-y:auto;background:var(--bg)}
 .sl{font-size:12px;color:var(--t3);margin-top:4px}
 .card{border:1px solid var(--bd);border-radius:var(--r2);padding:20px 24px;margin-bottom:14px;background:var(--bg)}
 .ct{font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13.5px;font-weight:500;border:none;cursor:pointer;transition:background .12s}
-.bp{background:var(--ac);color:#fff}.bp:hover{background:var(--ac3)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13.5px;font-weight:500;border:none;cursor:pointer;transition:all .12s ease;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 8px rgba(0,0,0,.12)}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.bp{background:var(--ac);color:#fff;box-shadow:0 2px 4px rgba(124,92,191,.35),0 1px 2px rgba(124,92,191,.2)}.bp:hover{background:var(--ac3);box-shadow:0 4px 12px rgba(124,92,191,.4),0 2px 4px rgba(124,92,191,.25)}
 .bs{background:var(--bg2);color:var(--t1);border:1px solid var(--bd)}.bs:hover{background:var(--bg3)}
 .bg{background:transparent;color:var(--t2);border:1px solid var(--bd)}.bg:hover{background:var(--bg3);color:var(--t1)}
 .btn-google{background:#fff;color:#3c4043;border:1px solid var(--bd);display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:var(--r);font-size:13.5px;font-weight:500;cursor:pointer;transition:background .12s}
@@ -109,7 +111,7 @@ td{padding:10px 14px;font-size:13.5px;vertical-align:middle}
 <div id="app">
   <aside>
     <div class="sh">
-      <div class="logo"><span class="gem">◈</span><span class="logo-t">Litho SEO <span style="font-size:10px;font-weight:400;color:var(--t3);font-family:var(--mono)">v4.5</span></span></div>
+      <div class="logo"><span class="gem">◈</span><span class="logo-t">Litho SEO <span style="font-size:10px;font-weight:400;color:var(--t3);font-family:var(--mono)">v4.6</span></span></div>
       <div class="sdot" id="sdot" title="Statut Shopify"></div>
     </div>
     <nav class="snav">
@@ -311,8 +313,12 @@ async function lDash(){
     await Promise.all(blogs.map(async b=>{try{const a=await getAllArticles(b.id);tot+=a.length;pub+=a.filter(x=>x.published_at).length;}catch{}}));
     document.getElementById('sa').textContent=tot;document.getElementById('sp2').textContent=pub;
     try{const pd=await sReq('/admin/api/2024-01/pages.json?limit=100&fields=id,title,handle');
-      const PIERRES_EXACT=["agate", "aigue-marine", "amazonite", "amethyste", "apatite-bleue", "aventurine-bleue", "calcedoine", "citrine", "cornaline", "cristal-de-roche", "diamant", "emeraude", "grenat", "hematite", "howlite", "jade", "jaspe-rouge", "kunzite", "labradorite", "lapis-lazuli", "malachite", "obsidienne", "oeil-de-faucon", "oeil-de-taureau", "oeil-de-tigre", "pierre-de-lave", "pierre-de-lune", "pierre-de-soleil", "quartz-rose", "rhodochrosite", "rhodonite", "rubis", "saphir", "selenite", "sodalite", "tourmaline-noire"];
-      const sp=(pd.pages||[]).filter(p=>PIERRES_EXACT.includes(p.handle));
+      // Détecte dynamiquement les pages pierres
+      const EXCLUDED=['index','qui-sommes','contact','politique','livraison','cgv','cgu','mentions','aide','faq','guide-des-tailles','a-propos','paiement'];
+      const sp=(pd.pages||[]).filter(p=>{
+        const h=p.handle.toLowerCase();
+        return !EXCLUDED.some(ex=>h.includes(ex))&&!h.includes('condition')&&!h.includes('rembours')&&!h.includes('confiden');
+      });
       const pmEl=document.getElementById('spm');if(pmEl)pmEl.textContent=sp.length;}catch(_){}
   }catch(e){setDot('err');toast('Erreur Shopify : '+e.message,'err')}
 }
@@ -528,7 +534,7 @@ const DEF_PROMPTS={
 
   prompt_opt_m4:'Tu es un expert SEO spécialisé en lithothérapie. Analyse UNIQUEMENT la dimension sémantique. Ne réécris rien. Sépare les variantes identiques (pluriel, ordre des mots) des vraies variantes sémantiques. Réponds en JSON valide uniquement.',
   prompt_opt_m5:'Tu es un expert SEO spécialisé en lithothérapie. Analyse UNIQUEMENT la structure de l\'article (H2/H3, longueur, sections manquantes). Ne réécris rien. Réponds en JSON valide uniquement.',
-  prompt_opt_m6:'Tu es un expert SEO spécialisé en lithothérapie. Analyse UNIQUEMENT le maillage interne et externe. Identifie les liens manquants, les ancres à améliorer. Réponds en JSON valide uniquement.',
+  prompt_opt_m6:'Tu es un expert SEO spécialisé en lithothérapie. Analyse UNIQUEMENT la structure de maillage de cet article selon ces règles strictes.\n\nSTRUCTURE OBLIGATOIRE (4 liens internes + 1-2 externes) :\n1. Lien page mère (/pages/) — présent ou absent\n2. Lien article précédent du même blog (/blogs/) — présent ou absent\n3. Lien produit bracelet (/products/) — présent ou absent\n4. Lien collection (/collections/) — présent ou absent\n5. Lien(s) externe(s) non commercial (Wikipedia, Mindat, CNRS, universités) — présent ou absent\n\nNE PAS suggérer de liens vers des sujets thématiques spécifiques.\nNE PAS juger la pertinence des ancres au-delà du strict nécessaire.\nVérifier uniquement si les 4 types de liens obligatoires sont présents.\nVérifier que tous les liens sont en target=\\"_blank\\".\n\nRéponds en JSON valide uniquement : {"maillage_score":0,"has_page_mere":false,"has_article_precedent":false,"has_produit":false,"has_collection":false,"has_externe":false,"all_target_blank":false,"missing_links":[],"anchor_issues":[],"notes":""}',
   prompt_opt_m7:'Tu es un expert SEO spécialisé en lithothérapie. Génère un plan de réécriture complet basé sur les analyses sémantique, structurelle et maillage. Classe les sections en conserver/réécrire/ajouter. Réponds en JSON valide uniquement.',
   prompt_opt_m8:'Tu es un expert SEO spécialisé en lithothérapie et bijoux en pierre naturelle. Rédige UNIQUEMENT la section indiquée. HTML pur, vouvoiement, ton expert. Intègre naturellement les variantes sémantiques. Retourne uniquement le HTML h2/h3/p de la section.',
   prompt_opt_m9:'Tu es un expert SEO. Génère UNIQUEMENT les métadonnées SEO en JSON valide. Inclus meta_title (60 car.), meta_description (155 car.), url_handle, tags, jsonld_blogposting, jsonld_faqpage si FAQ présente, jsonld_breadcrumb. JSON uniquement, aucun texte avant ou après.',
@@ -1043,7 +1049,9 @@ async function optM4() {
     // Appel Claude M4
     updateOptSpinner('spin-m4', 'Mission 4/10 — Analyse sémantique Claude…');
     const prompt4 = S.get('prompt_opt_m4') || DEF_PROMPTS.prompt_opt_m4;
-    const articleText = (parsed?.h2s||[]).join(' | ') + ' | ' + (state.articleData?.body_html||'').replace(/<[^>]+>/g,' ').slice(0,2000);
+    // Envoie le texte complet de l'article (sans balises HTML) — pas tronqué
+    const fullText = (state.articleData?.body_html||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+    const articleText = 'H2: ' + (parsed?.h2s||[]).join(' | H2: ') + '\n\nCONTENU COMPLET:\n' + fullText;
     const serpSummary = serpData?.items?.filter(i=>i.type==='organic').slice(0,5).map(i=>i.title+' - '+i.domain).join('\n') || '';
     const variantsList = kwVariants.map(v=>v.keyword+' ('+v.search_volume+'/mois)').join('\n');
 
@@ -1094,47 +1102,70 @@ async function optM4() {
   }
 }
 
-// ─── MISSION 5 — ANALYSE STRUCTURELLE ────────────────────────
+// ─── MISSION 5 — ANALYSE STRUCTURELLE (100% mécanique) ───────
 async function optM5() {
   const state = window.optState;
   addOptSpinner('spin-m5', 'Mission 5/10 — Analyse structurelle…');
 
   try {
-    const prompt5 = S.get('prompt_opt_m5') || DEF_PROMPTS.prompt_opt_m5;
     const p = state.parsedData;
-    const targetLen = state.serpData?.items?.filter(i=>i.type==='organic').slice(0,3).reduce((s,i)=>s+(i.extended_snippet?.length||1200),0)/3 || 1300;
+    const serpItems = state.semanticData?.serpData?.items?.filter(i=>i.type==='organic').slice(0,3) || [];
+    const targetLen = serpItems.length > 0
+      ? Math.round(serpItems.reduce((s,i)=>s+(i.extended_snippet?.length||1200),0)/serpItems.length)
+      : 1300;
 
-    const m5Result = await callAnthropic(prompt5,
-      'STRUCTURE ACTUELLE:\nMots: ' + p.wordCount + '\nH2: ' + (p.h2s||[]).join(' | ') + '\nH3: ' + (p.h3s||[]).join(' | ') +
-      '\nFAQ: ' + (p.hasFaq?'présente':'absente') + '\nConclusion: ' + (p.hasConclusion?'présente':'absente') +
-      '\n\nLONGUEUR CIBLE: ~' + Math.round(targetLen) + ' mots' +
-      '\n\nMOT-CLÉ: ' + state.semanticData.targetKw +
-      '\nRéponds en JSON: {"structural_score":0,"h2_issues":[],"length_analysis":"","missing_sections":[],"sections_to_remove":[],"recommended_structure":[],"notes":""}',
-      1200
-    );
+    // Analyse 100% mécanique — pas d'appel Claude
+    const issues = [];
+    const missing = [];
 
-    const m5 = JSON.parse(m5Result.replace(/```json|```/g,'').trim());
-    state.structuralData = { ...m5, targetLength: Math.round(targetLen) };
+    // Longueur
+    const lenDiff = p.wordCount - targetLen;
+    const lenStatus = Math.abs(lenDiff) <= targetLen*0.15 ? 'ok' : lenDiff < 0 ? 'trop_court' : 'trop_long';
+    const lenAnalysis = lenStatus==='ok' ? 'Longueur correcte' : lenStatus==='trop_court' ? 'Article trop court (-'+Math.abs(lenDiff)+' mots)' : 'Article trop long (+'+lenDiff+' mots)';
+
+    // Structure H
+    if (p.h2s?.length < 2) issues.push('Moins de 2 H2 — structure insuffisante');
+    if (p.h2s?.length > 7) issues.push('Plus de 7 H2 — structure trop fragmentée');
+    if (!p.hasFaq && targetLen > 1200) missing.push('FAQ absente — recommandée pour les articles longs');
+    if (!p.hasConclusion) missing.push('Conclusion absente');
+
+    // Score mécanique
+    let score = 100;
+    if (lenStatus !== 'ok') score -= 20;
+    if (p.h2s?.length < 2) score -= 20;
+    if (!p.hasFaq) score -= 10;
+    if (!p.hasConclusion) score -= 10;
+    if (issues.length > 0) score -= issues.length * 10;
+    score = Math.max(0, score);
+
+    state.structuralData = { structural_score: score, targetLength: targetLen, lenStatus, lenAnalysis, h2_issues: issues, missing_sections: missing, recommended_structure: p.h2s || [] };
 
     removeOptSpinner('spin-m5');
     addOptMessage(
       chatCard('◈ Mission 5/10 — Analyse structurelle', [
         {
-          title: 'Structure actuelle vs cible',
+          title: 'Structure actuelle',
           items: [
-            {label: 'Score structure', value: '<span class="chat-badge ' + (m5.structural_score>=70?'cb-green':m5.structural_score>=40?'cb-orange':'cb-red') + '">' + (m5.structural_score||0) + '/100</span>'},
-            {label: 'Longueur actuelle', value: state.parsedData.wordCount + ' mots'},
-            {label: 'Longueur cible', value: '~' + Math.round(targetLen) + ' mots'},
-            {label: 'Analyse', value: '<span style="font-size:12.5px;color:var(--t2)">' + (m5.length_analysis||'') + '</span>'}
+            {label: 'Score structure', value: '<span class="chat-badge ' + (score>=70?'cb-green':score>=40?'cb-orange':'cb-red') + '">' + score + '/100</span>'},
+            {label: 'Longueur actuelle', value: p.wordCount + ' mots'},
+            {label: 'Longueur cible', value: '~' + targetLen + ' mots · ' + lenAnalysis},
+            {label: 'H2 présents', value: (p.h2s?.length||0) + ' sections'},
+            {label: 'H3 présents', value: (p.h3s?.length||0) + ' sous-sections'},
+            {label: 'FAQ', value: p.hasFaq ? '<span class="chat-badge cb-green">✓ Présente</span>' : '<span class="chat-badge cb-orange">✗ Absente</span>'},
+            {label: 'Conclusion', value: p.hasConclusion ? '<span class="chat-badge cb-green">✓ Présente</span>' : '<span class="chat-badge cb-orange">✗ Absente</span>'}
           ]
         },
-        m5.missing_sections?.length ? {
-          title: 'Sections manquantes',
-          list: (m5.missing_sections||[]).map(s => '<span style="color:var(--rd)">+</span> <span>' + s + '</span>')
+        p.h2s?.length ? {
+          title: 'Structure H2 actuelle',
+          list: (p.h2s||[]).map((h,i) => '<span style="color:var(--t3);font-size:11px;width:20px">H2</span><span>' + h + '</span>')
         } : null,
-        m5.h2_issues?.length ? {
-          title: 'Problèmes H2/H3 détectés',
-          list: (m5.h2_issues||[]).map(i => '<span style="color:var(--or)">⚠</span> <span style="font-size:12.5px">' + i + '</span>')
+        issues.length ? {
+          title: 'Problèmes détectés',
+          list: issues.map(i => '<span style="color:var(--rd)">⚠</span> <span style="font-size:12.5px">' + i + '</span>')
+        } : null,
+        missing.length ? {
+          title: 'Éléments manquants',
+          list: missing.map(m => '<span style="color:var(--or)">+</span> <span style="font-size:12.5px">' + m + '</span>')
         } : null
       ].filter(Boolean)),
       'bot'
@@ -1148,7 +1179,7 @@ async function optM5() {
   }
 }
 
-// ─── MISSION 6 — AUDIT MAILLAGE ──────────────────────────────
+// ─── MISSION 6 — AUDIT MAILLAGE (100% mécanique) ─────────────
 async function optM6() {
   const state = window.optState;
   addOptSpinner('spin-m6', 'Mission 6/10 — Audit maillage interne…');
@@ -1156,40 +1187,77 @@ async function optM6() {
   try {
     const p = state.parsedData;
     const domain = S.get('site_domain') || 'mineralfrance.com';
-    const prompt6 = S.get('prompt_opt_m6') || DEF_PROMPTS.prompt_opt_m6;
+    const html = state.articleData?.body_html || '';
 
-    const m6Result = await callAnthropic(prompt6,
-      'LIENS ACTUELS:\n' +
-      'Pages: ' + (p.pageLinks||[]).map(l=>l.url+'|'+l.text).join(', ') + '\n' +
-      'Produits: ' + (p.productLinks||[]).map(l=>l.url+'|'+l.text).join(', ') + '\n' +
-      'Collections: ' + (p.collectionLinks||[]).map(l=>l.url+'|'+l.text).join(', ') + '\n' +
-      'Externes: ' + (p.externalLinks||[]).map(l=>l.url).join(', ') + '\n' +
-      '\nDOMAINE: ' + domain + '\nMOT-CLÉ: ' + state.semanticData.targetKw +
-      '\nRéponds en JSON: {"maillage_score":0,"missing_links":[],"link_corrections":[],"anchor_issues":[],"notes":""}',
-      1000
+    // Vérifie mécaniquement la présence de chaque type de lien
+    const hasPageMere = (p.pageLinks?.length||0) > 0;
+    const hasArticlePrecedent = (p.internalLinks||[]).some(l => l.url.includes('/blogs/'));
+    const hasProduit = (p.productLinks?.length||0) > 0;
+    const hasCollection = (p.collectionLinks?.length||0) > 0;
+    const hasExterne = (p.externalLinks?.length||0) > 0;
+
+    // Vérifie target="_blank" sur tous les liens
+    const allLinks = [...html.matchAll(/href="([^"]+)"/gi)].map(m=>m[1]);
+    const allTargetBlank = [...html.matchAll(/href="([^"]+)"[^>]*target="_blank"/gi)].length;
+    const targetBlankOk = allLinks.length === 0 || allTargetBlank >= allLinks.length * 0.8;
+
+    // Vérifie les ancres (pas de "cliquez ici" ou "en savoir plus")
+    const badAnchors = (p.internalLinks||[]).filter(l => 
+      /cliquez ici|en savoir plus|voir plus|lire la suite|ici/i.test(l.text)
     );
 
-    const m6 = JSON.parse(m6Result.replace(/```json|```/g,'').trim());
-    state.maillagData = m6;
+    // Score mécanique
+    let score = 100;
+    if (!hasPageMere) score -= 25;
+    if (!hasArticlePrecedent) score -= 20;
+    if (!hasProduit) score -= 20;
+    if (!hasCollection) score -= 15;
+    if (!hasExterne) score -= 10;
+    if (!targetBlankOk) score -= 10;
+    score = Math.max(0, score);
+
+    const missing = [];
+    if (!hasPageMere) missing.push('Lien page mère (/pages/) manquant');
+    if (!hasArticlePrecedent) missing.push('Lien article précédent du blog manquant');
+    if (!hasProduit) missing.push('Lien produit bracelet (/products/) manquant');
+    if (!hasCollection) missing.push('Lien collection (/collections/) manquant');
+    if (!hasExterne) missing.push('Lien externe autorité manquant (Wikipedia, Mindat, CNRS...)');
+    if (!targetBlankOk) missing.push('Certains liens sans target="_blank"');
+
+    state.maillagData = { maillage_score: score, has_page_mere: hasPageMere, has_article_precedent: hasArticlePrecedent, has_produit: hasProduit, has_collection: hasCollection, has_externe: hasExterne, all_target_blank: targetBlankOk, missing_links: missing, bad_anchors: badAnchors };
 
     removeOptSpinner('spin-m6');
     addOptMessage(
       chatCard('◈ Mission 6/10 — Audit maillage', [
         {
-          title: 'État du maillage',
+          title: 'Structure de chaînage obligatoire',
           items: [
-            {label: 'Score maillage', value: '<span class="chat-badge ' + (m6.maillage_score>=70?'cb-green':m6.maillage_score>=40?'cb-orange':'cb-red') + '">' + (m6.maillage_score||0) + '/100</span>'},
-            {label: 'Page mère', value: (p.pageLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
-            {label: 'Produit', value: (p.productLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
-            {label: 'Collection', value: (p.collectionLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
-            {label: 'Externe autorité', value: (p.externalLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'}
+            {label: 'Score maillage', value: '<span class="chat-badge ' + (score>=70?'cb-green':score>=40?'cb-orange':'cb-red') + '">' + score + '/100</span>'},
+            {label: 'Page mère', value: hasPageMere ? '<span class="chat-badge cb-green">✓ Présent</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'Article précédent', value: hasArticlePrecedent ? '<span class="chat-badge cb-green">✓ Présent</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'Produit bracelet', value: hasProduit ? '<span class="chat-badge cb-green">✓ Présent</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'Collection', value: hasCollection ? '<span class="chat-badge cb-green">✓ Présent</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'Lien externe autorité', value: hasExterne ? '<span class="chat-badge cb-green">✓ Présent (' + (p.externalLinks?.length||0) + ')</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'target="_blank"', value: targetBlankOk ? '<span class="chat-badge cb-green">✓ OK</span>' : '<span class="chat-badge cb-orange">⚠ Incomplet</span>'}
           ]
         },
-        m6.missing_links?.length ? {
-          title: 'Liens manquants',
-          list: (m6.missing_links||[]).map(l => '<span style="color:var(--rd)">✗</span> <span>' + l + '</span>')
+        (p.internalLinks?.length||0)+(p.externalLinks?.length||0) > 0 ? {
+          title: 'Liens détectés',
+          list: [
+            ...( p.pageLinks?.map(l=>'<span class="chat-badge cb-blue" style="margin-right:6px">page</span><span style="font-size:12px">' + l.url + '</span>') || [] ),
+            ...( p.productLinks?.map(l=>'<span class="chat-badge cb-green" style="margin-right:6px">produit</span><span style="font-size:12px">' + l.url + '</span>') || [] ),
+            ...( p.collectionLinks?.map(l=>'<span class="chat-badge cb-purple" style="margin-right:6px">collection</span><span style="font-size:12px">' + l.url + '</span>') || [] ),
+            ...( p.externalLinks?.slice(0,3).map(l=>'<span class="chat-badge cb-gray" style="margin-right:6px">externe</span><span style="font-size:12px">' + l.url.slice(0,50) + '</span>') || [] )
+          ]
         } : null,
-        m6.notes ? {title:'Notes', html:'<div style="font-size:12.5px;color:var(--t2)">' + m6.notes + '</div>'} : null
+        missing.length ? {
+          title: 'Corrections nécessaires',
+          list: missing.map(m => '<span style="color:var(--rd)">✗</span> <span style="font-size:12.5px">' + m + '</span>')
+        } : {title: '', html: '<div style="color:var(--gn);font-size:13px">✓ Maillage complet</div>'},
+        badAnchors.length ? {
+          title: '⚠ Ancres génériques à corriger',
+          list: badAnchors.map(a => '"' + a.text + '" → ' + a.url.slice(0,40))
+        } : null
       ].filter(Boolean)) +
       '<div style="padding:8px 0 4px;font-size:13px;color:var(--t2)">Génération du plan de réécriture…</div>',
       'bot'
@@ -1467,14 +1535,34 @@ function displayOptPreview() {
   const right = document.getElementById('opt-right');
   if (!right || !state.assembledHtml) return;
   right.innerHTML = `
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button class="btn bp" onclick="optM10()" style="background:#2d8a5a">↑ Pousser en brouillon</button>
-      <button class="btn bs" onclick="navigator.clipboard.writeText(document.getElementById('opt-html-preview').value)">📋 Copier HTML</button>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn bp" id="opt-tab-preview" onclick="optShowTab('opt-preview',this)">👁 Prévisualisation</button>
+      <button class="btn bs" id="opt-tab-html" onclick="optShowTab('opt-html',this)">📄 HTML brut</button>
+      <button class="btn bp" onclick="optM10()" style="margin-left:auto;background:#2d8a5a;box-shadow:0 2px 4px rgba(45,138,90,.35)">↑ Pousser en brouillon</button>
     </div>
-    <div class="card" style="overflow-y:auto;flex:1">
-      <div class="ct">Article optimisé — HTML</div>
+    <div id="opt-preview" class="card" style="overflow-y:auto;flex:1">
+      <div class="ct">Prévisualisation — rendu réel</div>
+      <div style="padding:24px;font-size:15px;line-height:1.8;color:var(--t1);border-top:1px solid var(--bd);max-width:680px;margin:0 auto">
+        ${state.assembledHtml}
+      </div>
+    </div>
+    <div id="opt-html" class="card" style="display:none;overflow-y:auto;flex:1">
+      <div class="ct">HTML brut</div>
       <textarea id="opt-html-preview" style="width:100%;height:500px;font-family:var(--mono);font-size:11.5px;border:1px solid var(--bd);border-radius:var(--r);padding:12px;resize:vertical;background:var(--bg2)">${state.assembledHtml}</textarea>
     </div>`;
+}
+
+function optShowTab(id, btn) {
+  ['opt-preview','opt-html'].forEach(t => {
+    const el = document.getElementById(t);
+    if (el) el.style.display = t === id ? 'block' : 'none';
+  });
+  if (btn) {
+    ['opt-tab-preview','opt-tab-html'].forEach(b => {
+      const el = document.getElementById(b);
+      if (el) el.className = 'btn ' + (el.id === 'opt-tab-' + id.replace('opt-','') ? 'bp' : 'bs');
+    });
+  }
 }
 
 // ─── MISSION 10 — PUSH SHOPIFY ────────────────────────────────
@@ -2590,15 +2678,25 @@ function displayArticleResult(html, fiche, checklist, state) {
 
   right.innerHTML = `
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-      <button class="btn bp" id="tab-btn-article" onclick="showTab('tab-article',this)">📄 Article HTML</button>
-      <button class="btn bs" id="tab-btn-fiche" onclick="showTab('tab-fiche',this)">📋 Fiche technique</button>
+      <button class="btn bp" id="tab-btn-preview" onclick="showTab('tab-preview',this)">👁 Prévisualisation</button>
+      <button class="btn bs" id="tab-btn-article" onclick="showTab('tab-article',this)">📄 HTML brut</button>
+      <button class="btn bs" id="tab-btn-fiche" onclick="showTab('tab-fiche',this)">📋 Fiche</button>
       <button class="btn bs" id="tab-btn-checklist" onclick="showTab('tab-checklist',this)">✅ Checklist</button>
-      <button class="btn bp" style="margin-left:auto;background:#2d8a5a" onclick="pushDraft()">↑ Pousser en brouillon</button>
+      <button class="btn bp" style="margin-left:auto;background:#2d8a5a;box-shadow:0 2px 4px rgba(45,138,90,.35)" onclick="pushDraft()">↑ Pousser en brouillon</button>
     </div>
 
-    <div id="tab-article" style="overflow-y:auto;flex:1">
+    <div id="tab-preview" style="overflow-y:auto;flex:1">
       <div class="card" style="margin-bottom:10px">
-        <div class="ct">Article généré — HTML brut</div>
+        <div class="ct">Prévisualisation — rendu réel</div>
+        <div style="padding:24px;font-size:15px;line-height:1.8;color:var(--t1);border-top:1px solid var(--bd);max-width:680px;margin:0 auto" id="article-preview-render">
+          ${html}
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-article" style="display:none;overflow-y:auto;flex:1">
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct">HTML brut</div>
         <div style="display:flex;gap:8px;margin-bottom:10px">
           <button class="btn bs" style="font-size:12px" onclick="document.getElementById('article-html-output').select();document.execCommand('copy');lithoToast('HTML copié','ok')">📋 Copier le HTML</button>
         </div>
@@ -2623,14 +2721,14 @@ function displayArticleResult(html, fiche, checklist, state) {
 }
 
 function showTab(id, btn) {
-  ['tab-article','tab-fiche','tab-checklist'].forEach(t => {
+  ['tab-preview','tab-article','tab-fiche','tab-checklist'].forEach(t => {
     const el = document.getElementById(t);
     if (el) el.style.display = t === id ? 'block' : 'none';
   });
   if(btn){
-    ['tab-btn-article','tab-btn-fiche','tab-btn-checklist'].forEach(b=>{
+    ['tab-btn-preview','tab-btn-article','tab-btn-fiche','tab-btn-checklist'].forEach(b=>{
       const el=document.getElementById(b);
-      if(el){el.className=el.id==='tab-btn-'+id.replace('tab-','')?' btn bp':'btn bs';}
+      if(el){el.className='btn '+(el.id==='tab-btn-'+id.replace('tab-','')?'bp':'bs');}
     });
   }
 }
