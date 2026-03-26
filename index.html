@@ -938,7 +938,9 @@ async function optM3() {
   addOptSpinner('spin-m3', 'Mission 3/10 — Chargement et parsing de l\'article…');
 
   try {
-    const fullData = await sReq('/admin/api/2024-01/blogs/' + article.blog_id + '/articles/' + article.id + '.json');
+    const blogIdToUse = article.blog_id || state.blogId;
+    console.log('M3 - blogId:', blogIdToUse, 'articleId:', article.id);
+    const fullData = await sReq('/admin/api/2024-01/blogs/' + blogIdToUse + '/articles/' + article.id + '.json');
     const a = fullData.article;
     state.articleData = a;
 
