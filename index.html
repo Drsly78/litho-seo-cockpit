@@ -81,6 +81,23 @@ tbody tr{border-bottom:1px solid var(--bd2);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--bg2)}
 td{padding:10px 14px;font-size:13.5px;vertical-align:middle}
+.chat-card{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 16px;margin-bottom:6px;font-size:13px;line-height:1.7}
+.chat-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px}
+.chat-section{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--bd2)}
+.chat-section:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.chat-kv{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:13px}
+.chat-kv-label{color:var(--t2);min-width:130px;flex-shrink:0;font-size:12.5px}
+.chat-kv-value{color:var(--t1);font-weight:500}
+.chat-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11.5px;font-weight:600}
+.cb-red{background:#fdeaea;color:#b53030}.cb-orange{background:#fdf3ec;color:#c4622a}
+.cb-green{background:#edf7f1;color:#2d8a5a}.cb-blue{background:#e8f0fe;color:#1a73e8}
+.cb-purple{background:var(--ac2);color:var(--ac)}.cb-gray{background:var(--bg3);color:var(--t2)}
+.chat-list{list-style:none;padding:0;margin:4px 0}
+.chat-list li{padding:4px 0;border-bottom:1px solid var(--bd2);display:flex;align-items:center;gap:8px;font-size:13px}
+.chat-list li:last-child{border-bottom:none}
+.chat-pos{display:inline-flex;align-items:center;justify-content:center;width:28px;height:18px;border-radius:4px;font-size:11px;font-weight:700;flex-shrink:0}
+.pos-red{background:#fdeaea;color:#b53030}.pos-orange{background:#fdf3ec;color:#c4622a}
+.pos-green{background:#edf7f1;color:#2d8a5a}.pos-gray{background:var(--bg3);color:var(--t2)}
 #tc{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:1000}
 .tos{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--r2);font-size:13.5px;max-width:300px;color:#fff;animation:fi .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.12)}
 .t-ok{background:#1f5c3a}.t-err{background:#7a2020}.t-def{background:var(--t1)}
@@ -92,7 +109,7 @@ td{padding:10px 14px;font-size:13.5px;vertical-align:middle}
 <div id="app">
   <aside>
     <div class="sh">
-      <div class="logo"><span class="gem">◈</span><span class="logo-t">Litho SEO</span></div>
+      <div class="logo"><span class="gem">◈</span><span class="logo-t">Litho SEO <span style="font-size:10px;font-weight:400;color:var(--t3);font-family:var(--mono)">v4.5</span></span></div>
       <div class="sdot" id="sdot" title="Statut Shopify"></div>
     </div>
     <nav class="snav">
@@ -166,7 +183,7 @@ function nav(p){
   document.querySelectorAll('.pg').forEach(el=>el.classList.toggle('on',el.id==='p-'+p));
   ({dashboard:rDash,articles:rArticles,connections:rConn,prompts:rPrompts,settings:rSettings,history:rHist,
     create:rCreate,
-    optimize:()=>rPH('optimize','Optimiser','Diagnostic et réécriture des articles existants','⟳'),
+    optimize:rOptimize,
     cocon:rCocon,
   })[p]?.();
 }
@@ -509,6 +526,12 @@ const DEF_PROMPTS={
     '---CHECKLIST---\n' +
     '🧠 SEO/YMYL/EEAT\n[✅/❌] Ton conditionnel YMYL — [précision]\n[✅/❌] Variation lexicale respectée — [exemples utilisés]\n[✅/❌] Densité mot-clé ≤1.5% — [densité réelle]\n[✅/❌] Longue traîne intégrée — [expressions utilisées]\n[✅/❌] Mots-clés secondaires intégrés\n[✅/❌] Au moins une liste à puces\n🧩 Structure\n[✅/❌] Commence par H2 — [titre]\n[✅/❌] Uniquement H2/H3\n[✅/❌] Titre non répété\n[✅/❌] FAQ si pertinente\n🖼️ Images\n[✅/❌] Prompt image principale\n[✅/❌] 4 prompts secondaires\n[✅/❌] ALT optimisées\n🛒 Encart produit\n[✅/❌] HTML format correct\n[✅/❌] Lien produit intégré\n[✅/❌] 5 ALT encart\n🔗 Maillage\n[✅/❌] Lien page mère — [anchor]\n[✅/❌] Lien article précédent — [anchor]\n[✅/❌] Lien collection — [anchor]\n[✅/❌] Liens autorité — [sources]\n[✅/❌] Tous target="_blank"\n🧾 Meta\n[✅/❌] Meta description — [nb car.]\n[✅/❌] Prêt pour Shopify',
 
+  prompt_opt_m4:'Tu es un expert SEO spécialisé en lithothérapie. Analyse UNIQUEMENT la dimension sémantique. Ne réécris rien. Sépare les variantes identiques (pluriel, ordre des mots) des vraies variantes sémantiques. Réponds en JSON valide uniquement.',
+  prompt_opt_m5:'Tu es un expert SEO spécialisé en lithothérapie. Analyse UNIQUEMENT la structure de l\'article (H2/H3, longueur, sections manquantes). Ne réécris rien. Réponds en JSON valide uniquement.',
+  prompt_opt_m6:'Tu es un expert SEO spécialisé en lithothérapie. Analyse UNIQUEMENT le maillage interne et externe. Identifie les liens manquants, les ancres à améliorer. Réponds en JSON valide uniquement.',
+  prompt_opt_m7:'Tu es un expert SEO spécialisé en lithothérapie. Génère un plan de réécriture complet basé sur les analyses sémantique, structurelle et maillage. Classe les sections en conserver/réécrire/ajouter. Réponds en JSON valide uniquement.',
+  prompt_opt_m8:'Tu es un expert SEO spécialisé en lithothérapie et bijoux en pierre naturelle. Rédige UNIQUEMENT la section indiquée. HTML pur, vouvoiement, ton expert. Intègre naturellement les variantes sémantiques. Retourne uniquement le HTML h2/h3/p de la section.',
+  prompt_opt_m9:'Tu es un expert SEO. Génère UNIQUEMENT les métadonnées SEO en JSON valide. Inclus meta_title (60 car.), meta_description (155 car.), url_handle, tags, jsonld_blogposting, jsonld_faqpage si FAQ présente, jsonld_breadcrumb. JSON uniquement, aucun texte avant ou après.',
   prompt_optimize:'Tu es un expert SEO spécialisé en lithothérapie.\n\nTu reçois un article existant avec ses données de performance.\n\nDiagnostique les faiblesses et propose une version améliorée.\n\nPoints de contrôle :\n- Longueur : minimum 1200 mots\n- Structure H2/H3 équilibrée\n- Variation lexicale : pas de répétitions mécaniques\n- FAQ présente si pertinente\n- Maillage interne : 4 liens\n- Encart produit HTML présent\n- Meta description 150-160 caractères\n\nRetourner le HTML amélioré du body uniquement.'
 };
 function rPrompts(){
@@ -581,6 +604,944 @@ function rHist(){
       +'<td><button onclick="deleteHist('+i+')" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:16px;padding:0 4px" title="Supprimer">✕</button></td>'
       +'</tr>').join('')
     +'</tbody></table></div>');
+}
+
+// ─── MODULE OPTIMISER ────────────────────────────────────────
+function rOptimize() {
+  const pg = document.getElementById('p-optimize');
+  pg.innerHTML = `
+    <div class="ph">
+      <div class="pt">Optimiser un article</div>
+      <div class="ps">Audit SEO complet + réécriture assistée en 10 missions</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;height:calc(100vh - 180px)">
+      <!-- Chat gauche -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px" id="opt-chat">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">◎</div>
+            <div style="background:var(--bg2);border-radius:var(--r2);padding:12px 14px;font-size:13.5px;line-height:1.6;max-width:90%">
+              Bonjour ! Je suis prêt à optimiser un de vos articles.<br><br>
+              Commencez par <strong>choisir le blog</strong> à analyser ci-dessous.
+            </div>
+          </div>
+        </div>
+        <div id="opt-input-zone">
+          <div class="card" style="padding:14px">
+            <div class="fg" style="margin-bottom:0">
+              <label class="fl">Blog à analyser</label>
+              <select class="inp" id="opt-blog-select" onchange="optLoadBlog(this.value)">
+                <option value="">Chargement des blogs…</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Résultats droite -->
+      <div style="display:flex;flex-direction:column;gap:12px;overflow-y:auto" id="opt-right">
+        <div class="card" style="text-align:center;padding:40px;color:var(--t3)">
+          <div style="font-size:28px;margin-bottom:12px;opacity:.3">◎</div>
+          <div style="font-size:13.5px">Sélectionnez un blog pour commencer</div>
+        </div>
+      </div>
+    </div>`;
+
+  window.optState = {
+    step: 'select_blog',
+    blogId: null, blogTitle: null, blogHandle: null,
+    articles: [], selectedArticle: null,
+    auditResults: [], articleData: null,
+    semanticData: null, structuralData: null,
+    maillagData: null, plan: null,
+    sections: [], assembledHtml: null, metadata: null
+  };
+
+  // Charge les blogs
+  if (!S.has()) {
+    addOptMessage('⚠ Shopify non connecté. Configurez la connexion dans <strong>Connexions</strong>.', 'bot');
+    return;
+  }
+  sReq('/admin/api/2024-01/blogs.json').then(data => {
+    const sel = document.getElementById('opt-blog-select');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Choisissez un blog —</option>' +
+      (data.blogs||[]).map(b => '<option value="' + b.id + '" data-handle="' + b.handle + '" data-title="' + b.title + '">' + b.title + '</option>').join('');
+  }).catch(e => addOptMessage('Erreur chargement blogs : ' + e.message, 'bot'));
+}
+
+function addOptMessage(html, role) {
+  const container = document.getElementById('opt-chat');
+  if (!container) return;
+  const isBot = role === 'bot';
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:10px;align-items:flex-start';
+  div.innerHTML = (isBot
+    ? '<div style="width:28px;height:28px;border-radius:50%;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">◎</div>'
+    : '<div style="width:28px;height:28px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">Vous</div>')
+    + '<div style="background:' + (isBot ? 'var(--bg)' : 'var(--ac2)') + ';border:1px solid var(--bd);border-radius:var(--r2);padding:12px 14px;font-size:13.5px;line-height:1.6;max-width:90%">' + html + '</div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addOptSpinner(id, label) {
+  const container = document.getElementById('opt-chat');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.cssText = 'display:flex;gap:10px;align-items:flex-start';
+  div.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">◎</div>'
+    + '<div style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r2);padding:12px 14px;font-size:13.5px" id="' + id + '-txt">' + sp() + ' ' + label + '</div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeOptSpinner(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function updateOptSpinner(id, label) {
+  const el = document.getElementById(id + '-txt');
+  if (el) el.innerHTML = sp() + ' ' + label;
+}
+
+// ─── MISSION 1 — LISTER LES ARTICLES ─────────────────────────
+async function optLoadBlog(blogId) {
+  if (!blogId) return;
+  const sel = document.getElementById('opt-blog-select');
+  const opt = sel?.options[sel.selectedIndex];
+  const state = window.optState;
+  state.blogId = blogId;
+  state.blogTitle = opt?.dataset.title || 'Blog';
+  state.blogHandle = opt?.dataset.handle || '';
+
+  // Remplace la zone input par un simple label
+  const inputZone = document.getElementById('opt-input-zone');
+  if (inputZone) inputZone.innerHTML = `
+    <div class="card" style="padding:12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:13px;color:var(--t2)">Blog sélectionné :</div>
+      <div style="font-weight:600;font-size:13px">${state.blogTitle}</div>
+      <button class="btn bg" style="margin-left:auto;font-size:12px" onclick="rOptimize()">Changer</button>
+    </div>`;
+
+  addOptSpinner('spin-m1', 'Mission 1/10 — Chargement des articles…');
+
+  try {
+    const arts = await getAllArticles(blogId);
+    arts.sort((a,b) => new Date(b.published_at||b.created_at) - new Date(a.published_at||a.created_at));
+    state.articles = arts;
+
+    removeOptSpinner('spin-m1');
+
+    const published = arts.filter(a => a.published_at);
+    const drafts = arts.filter(a => !a.published_at);
+
+    addOptMessage(
+      chatCard('✦ Mission 1/10 — Articles détectés', [
+        {
+          title: state.blogTitle,
+          items: [
+            {label: 'Articles publiés', value: '<span class="chat-badge cb-green">' + published.length + '</span>'},
+            {label: 'Brouillons', value: '<span class="chat-badge cb-gray">' + drafts.length + '</span>'}
+          ]
+        },
+        {
+          title: 'Articles publiés',
+          list: published.map((a,i) =>
+            '<span style="color:var(--t3);font-size:11px;width:18px">' + (i+1) + '.</span>' +
+            '<span style="flex:1">' + a.title + '</span>' +
+            '<span style="color:var(--t3);font-size:11.5px">' + wc(a.body_html||'') + ' mots</span>'
+          )
+        }
+      ]) +
+      '<div style="padding:10px 0 4px;font-size:13px">Cliquez sur un article pour lancer l\'audit.</div>',
+      'bot'
+    );
+
+    // Affiche les articles dans le panneau droit avec bouton Auditer
+    displayOptArticleList(arts);
+    state.step = 'select_article';
+
+  } catch(e) {
+    removeOptSpinner('spin-m1');
+    addOptMessage('Erreur chargement articles : ' + e.message, 'bot');
+  }
+}
+
+function displayOptArticleList(arts) {
+  const right = document.getElementById('opt-right');
+  if (!right) return;
+  const published = arts.filter(a => a.published_at);
+  const drafts = arts.filter(a => !a.published_at);
+
+  right.innerHTML = `
+    <div class="card">
+      <div class="ct">Sélectionnez un article à optimiser</div>
+      <div style="display:flex;flex-direction:column;gap:4px" id="opt-article-list">
+        ${published.map(a => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);cursor:pointer;border:1px solid transparent"
+            onmouseover="this.style.borderColor='var(--ac)'" onmouseout="this.style.borderColor='transparent'"
+            onclick="optSelectArticle('${a.id}','${a.blog_id}','${a.handle}',this)">
+            <div style="flex:1">
+              <div style="font-weight:500;font-size:13.5px">${a.title}</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:2px">${wc(a.body_html||'')} mots · Publié ${new Date(a.published_at).toLocaleDateString('fr-FR')}</div>
+            </div>
+            <span class="bge b-green" style="font-size:11px">Publié</span>
+          </div>`).join('')}
+        ${drafts.length > 0 ? '<div style="font-size:12px;color:var(--t3);padding:8px 0 4px">Brouillons</div>' + drafts.map(a => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);cursor:pointer;border:1px solid transparent"
+            onmouseover="this.style.borderColor='var(--ac)'" onmouseout="this.style.borderColor='transparent'"
+            onclick="optSelectArticle('${a.id}','${a.blog_id}','${a.handle}',this)">
+            <div style="flex:1">
+              <div style="font-weight:500;font-size:13.5px">${a.title}</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:2px">${wc(a.body_html||'')} mots</div>
+            </div>
+            <span class="bge b-gray" style="font-size:11px">Brouillon</span>
+          </div>`).join('') : ''}
+      </div>
+    </div>`;
+}
+
+// ─── MISSION 2 — AUDIT GSC + GA4 ─────────────────────────────
+async function optSelectArticle(articleId, blogId, handle, el) {
+  // Met en surbrillance l'article sélectionné
+  document.querySelectorAll('#opt-article-list > div').forEach(d => d.style.background = 'var(--bg2)');
+  if (el) el.style.background = 'var(--ac2)';
+
+  const state = window.optState;
+  const article = state.articles.find(a => String(a.id) === String(articleId));
+  if (!article) return;
+  state.selectedArticle = article;
+
+  addOptMessage('<strong>Article sélectionné :</strong> ' + article.title + '<br>Lancement de l\'audit GSC + GA4…', 'bot');
+  addOptSpinner('spin-m2', 'Mission 2/10 — Audit GSC en cours…');
+
+  try {
+    const domain = S.get('site_domain') || 'mineralfrance.com';
+    const articleUrl = 'https://' + domain + '/blogs/' + state.blogHandle + '/' + handle;
+
+    // GSC pour cet article
+    const token = await getServiceAccountToken(['https://www.googleapis.com/auth/webmasters.readonly']);
+    const siteUrl = S.get('gsc_site_url') || 'https://' + domain + '/';
+    const end = new Date().toISOString().split('T')[0];
+    const start = new Date(Date.now()-90*24*60*60*1000).toISOString().split('T')[0];
+
+    let gscArticle = null, ga4Article = null;
+
+    if (token) {
+      updateOptSpinner('spin-m2', 'Mission 2/10 — Récupération données GSC…');
+      try {
+        const gscResp = await fetch('https://www.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(siteUrl) + '/searchAnalytics/query', {
+          method: 'POST',
+          headers: {'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+          body: JSON.stringify({
+            startDate: start, endDate: end,
+            dimensions: ['query'],
+            dimensionFilterGroups: [{filters:[{dimension:'page',operator:'equals',expression:articleUrl}]}],
+            rowLimit: 10
+          })
+        });
+        gscArticle = await gscResp.json();
+      } catch(_) {}
+
+      // GA4
+      updateOptSpinner('spin-m2', 'Mission 2/10 — Récupération données GA4…');
+      const ga4PropId = S.get('ga4_property_id');
+      if (ga4PropId) {
+        try {
+          const ga4Token = await getServiceAccountToken(['https://www.googleapis.com/auth/analytics.readonly']);
+          const ga4Resp = await fetch('https://analyticsdata.googleapis.com/v1beta/properties/' + ga4PropId + ':runReport', {
+            method: 'POST',
+            headers: {'Authorization':'Bearer '+ga4Token,'Content-Type':'application/json'},
+            body: JSON.stringify({
+              dateRanges: [{startDate: start, endDate: end}],
+              dimensions: [{name:'pagePath'}],
+              metrics: [{name:'averageSessionDuration'},{name:'bounceRate'},{name:'screenPageViews'}],
+              dimensionFilter: {filter:{fieldName:'pagePath',stringFilter:{matchType:'EXACT',value:'/blogs/'+state.blogHandle+'/'+handle}}}
+            })
+          });
+          ga4Article = await ga4Resp.json();
+        } catch(_) {}
+      }
+    }
+
+    removeOptSpinner('spin-m2');
+
+    // Calcule la priorité
+    const topQuery = gscArticle?.rows?.[0];
+    const position = topQuery?.position || 999;
+    const impressions = gscArticle?.rows?.reduce((s,r)=>s+(r.impressions||0),0) || 0;
+    const ga4Row = ga4Article?.rows?.[0];
+    const avgDuration = ga4Row ? Math.round(parseFloat(ga4Row.metricValues[0].value)) : null;
+    const bounceRate = ga4Row ? (parseFloat(ga4Row.metricValues[1].value)*100).toFixed(0) : null;
+    const pageViews = ga4Row ? ga4Row.metricValues[2].value : null;
+
+    let priority, priorityBadge;
+    if (position >= 8 && position <= 15 && impressions >= 500) {
+      priority = 'quick_win'; priorityBadge = '<span class="chat-badge cb-red">🔴 Quick win</span>';
+    } else if (position >= 16 && position <= 30 && impressions >= 200) {
+      priority = 'potential'; priorityBadge = '<span class="chat-badge cb-orange">🟡 Potentiel</span>';
+    } else if (position >= 1 && position <= 7) {
+      priority = 'good'; priorityBadge = '<span class="chat-badge cb-green">🟢 Bon</span>';
+    } else {
+      priority = 'rework'; priorityBadge = '<span class="chat-badge cb-gray">⚫ À retravailler</span>';
+    }
+
+    state.auditData = { gsc: gscArticle, ga4: ga4Article, priority, position, impressions, topQuery };
+
+    const gscRows = gscArticle?.rows || [];
+    addOptMessage(
+      chatCard('⊹ Mission 2/10 — Audit "' + article.title + '"', [
+        {
+          title: 'Priorité',
+          html: '<div style="margin:4px 0">' + priorityBadge + '</div>'
+        },
+        {
+          title: 'Google Search Console',
+          items: [
+            {label: 'Mot-clé principal', value: topQuery ? '<strong>' + topQuery.keys[0] + '</strong>' : 'Non détecté'},
+            {label: 'Position', value: topQuery ? posBadge(topQuery.position) : '<span class="chat-badge cb-gray">N/A</span>'},
+            {label: 'Impressions (90j)', value: impressions > 0 ? impressions.toLocaleString('fr') : '0'},
+            {label: 'CTR moyen', value: topQuery ? (topQuery.ctr*100).toFixed(1) + '%' : 'N/A'}
+          ]
+        },
+        gscRows.length > 1 ? {
+          title: 'Top requêtes',
+          list: gscRows.slice(0,5).map(r =>
+            posBadge(r.position) + '<span style="flex:1">"' + r.keys[0] + '"</span>' +
+            '<span style="color:var(--t3);font-size:11.5px">' + r.impressions + ' imp.</span>'
+          )
+        } : null,
+        avgDuration !== null ? {
+          title: 'Google Analytics 4',
+          items: [
+            {label: 'Durée moyenne', value: Math.floor(avgDuration/60) + 'min ' + (avgDuration%60) + 's'},
+            {label: 'Taux rebond', value: bounceRate + '%'},
+            {label: 'Pages vues', value: pageViews || 'N/A'}
+          ]
+        } : {title: 'GA4', html: '<div style="color:var(--t3);font-size:12.5px">Données GA4 non disponibles</div>'}
+      ].filter(Boolean)) +
+      '<div class="chat-action"><button class="btn bp" onclick="optM3()">Lancer l\'analyse complète →</button></div>',
+      'bot'
+    );
+
+  } catch(e) {
+    removeOptSpinner('spin-m2');
+    addOptMessage('Erreur audit : ' + e.message, 'bot');
+  }
+}
+
+// ─── MISSION 3 — CHARGER ET PARSER L'ARTICLE ─────────────────
+async function optM3() {
+  const state = window.optState;
+  const article = state.selectedArticle;
+  addOptSpinner('spin-m3', 'Mission 3/10 — Chargement et parsing de l\'article…');
+
+  try {
+    const fullData = await sReq('/admin/api/2024-01/blogs/' + article.blog_id + '/articles/' + article.id + '.json');
+    const a = fullData.article;
+    state.articleData = a;
+
+    const html = a.body_html || '';
+    const wordCount = wc(html);
+
+    // Parsing mécanique
+    const h2s = [...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/gi)].map(m=>m[1].trim());
+    const h3s = [...html.matchAll(/<h3[^>]*>([^<]+)<\/h3>/gi)].map(m=>m[1].trim());
+    const hasFaq = /faq|question|répon/i.test(html);
+    const hasConclusion = /conclusion|pour finir|en résumé/i.test(html);
+
+    // Parsing liens
+    const domain = S.get('site_domain') || 'mineralfrance.com';
+    const allLinks = [...html.matchAll(/href="([^"]+)"[^>]*>([^<]+)</gi)].map(m=>({url:m[1],text:m[2]}));
+    const internalLinks = allLinks.filter(l=>l.url.includes(domain)||l.url.startsWith('/'));
+    const productLinks = allLinks.filter(l=>l.url.includes('/products/'));
+    const collectionLinks = allLinks.filter(l=>l.url.includes('/collections/'));
+    const pageLinks = allLinks.filter(l=>l.url.includes('/pages/'));
+    const externalLinks = allLinks.filter(l=>!l.url.includes(domain)&&!l.url.startsWith('/')&&l.url.startsWith('http'));
+
+    // Parsing images
+    const images = [...html.matchAll(/<img[^>]+>/gi)].map((m,i)=>({
+      tag: m[0], src: (m[0].match(/src="([^"]+)"/)||[])[1]||'',
+      alt: (m[0].match(/alt="([^"]*)"/)||[])[1]||'', index: i
+    }));
+    state.images = images;
+
+    // JSON-LD
+    const hasJsonLd = html.includes('application/ld+json');
+
+    removeOptSpinner('spin-m3');
+    state.parsedData = { wordCount, h2s, h3s, hasFaq, hasConclusion, internalLinks, productLinks, collectionLinks, pageLinks, externalLinks, images, hasJsonLd, metaTitle: a.meta_title, metaDesc: a.meta_description };
+
+    addOptMessage(
+      chatCard('◈ Mission 3/10 — Article chargé', [
+        {
+          title: a.title,
+          items: [
+            {label: 'Contenu', value: wordCount + ' mots'},
+            {label: 'Structure', value: h2s.length + ' H2 · ' + h3s.length + ' H3'},
+            {label: 'FAQ', value: hasFaq ? '<span class="chat-badge cb-green">✓ Présente</span>' : '<span class="chat-badge cb-orange">✗ Absente</span>'},
+            {label: 'Meta title', value: a.meta_title ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-orange">✗ Absente</span>'},
+            {label: 'Meta description', value: a.meta_description ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-orange">✗ Absente</span>'},
+            {label: 'JSON-LD', value: hasJsonLd ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-orange">✗ Absent</span>'}
+          ]
+        },
+        {
+          title: 'Liens détectés',
+          items: [
+            {label: 'Page mère', value: pageLinks.length > 0 ? '<span class="chat-badge cb-green">✓ ' + pageLinks.length + '</span>' : '<span class="chat-badge cb-orange">✗ Absente</span>'},
+            {label: 'Produit', value: productLinks.length > 0 ? '<span class="chat-badge cb-green">✓ ' + productLinks.length + '</span>' : '<span class="chat-badge cb-orange">✗ Absent</span>'},
+            {label: 'Collection', value: collectionLinks.length > 0 ? '<span class="chat-badge cb-green">✓ ' + collectionLinks.length + '</span>' : '<span class="chat-badge cb-orange">✗ Absente</span>'},
+            {label: 'Liens externes', value: externalLinks.length > 0 ? externalLinks.length + ' lien(s)' : '<span class="chat-badge cb-orange">✗ Aucun</span>'}
+          ]
+        },
+        images.length > 0 ? {
+          title: 'Images',
+          html: '<div style="font-size:12.5px;color:var(--t2)">' + images.length + ' image(s) stockée(s) et positionnée(s)</div>'
+        } : null
+      ].filter(Boolean)) +
+      '<div style="padding:8px 0 4px;font-size:13px;color:var(--t2)">Analyse sémantique en cours…</div>',
+      'bot'
+    );
+
+    // Enchaîne automatiquement avec M4
+    await optM4();
+
+  } catch(e) {
+    removeOptSpinner('spin-m3');
+    addOptMessage('Erreur M3 : ' + e.message, 'bot');
+  }
+}
+
+// ─── MISSION 4 — ANALYSE SÉMANTIQUE ──────────────────────────
+async function optM4() {
+  const state = window.optState;
+  const article = state.selectedArticle;
+  const parsed = state.parsedData;
+  addOptSpinner('spin-m4', 'Mission 4/10 — Analyse sémantique DataForSEO…');
+
+  try {
+    // Détermine le mot-clé cible depuis GSC
+    const targetKw = state.auditData?.topQuery?.keys?.[0] || article.title.toLowerCase().split(' ').slice(0,3).join(' ');
+
+    // DataForSEO — SERP + variantes + PAA
+    updateOptSpinner('spin-m4', 'Mission 4/10 — SERP top 10…');
+    const serpData = await getSerp(targetKw);
+
+    updateOptSpinner('spin-m4', 'Mission 4/10 — Variantes sémantiques…');
+    const stone = targetKw.split(' ')[0];
+    const variants = [targetKw, stone+' propriétés', stone+' vertus', stone+' bienfaits', stone+' lithothérapie', stone+' chakra', stone+' signification', stone+' utilisation', stone+' comment', stone+' purification'];
+    const volData = await dfsReq('/v3/keywords_data/google_ads/search_volume/live', [{keywords: variants, language_code:'fr', location_code:2250}]);
+    const kwVariants = (volData?.tasks?.[0]?.result||[]).filter(r=>r.search_volume>0).sort((a,b)=>b.search_volume-a.search_volume);
+
+    // Extrait les PAA depuis le SERP
+    const paaItems = serpData?.items?.filter(i=>i.type==='people_also_ask') || [];
+    const paaQuestions = paaItems.flatMap(i=>i.items||[]).map(i=>i.title||i.question||'').filter(Boolean).slice(0,8);
+
+    // Appel Claude M4
+    updateOptSpinner('spin-m4', 'Mission 4/10 — Analyse sémantique Claude…');
+    const prompt4 = S.get('prompt_opt_m4') || DEF_PROMPTS.prompt_opt_m4;
+    const articleText = (parsed?.h2s||[]).join(' | ') + ' | ' + (state.articleData?.body_html||'').replace(/<[^>]+>/g,' ').slice(0,2000);
+    const serpSummary = serpData?.items?.filter(i=>i.type==='organic').slice(0,5).map(i=>i.title+' - '+i.domain).join('\n') || '';
+    const variantsList = kwVariants.map(v=>v.keyword+' ('+v.search_volume+'/mois)').join('\n');
+
+    const m4Result = await callAnthropic(prompt4,
+      'ARTICLE: ' + articleText + '\n\nMOT-CLÉ: ' + targetKw +
+      '\n\nSERP: ' + serpSummary + '\n\nVARIANTES: ' + variantsList +
+      '\n\nPAA: ' + paaQuestions.join('\n') +
+      '\nRéponds en JSON: {"retained_variants":[],"ignored_variants":[],"missing_subtopics":[],"paa_to_integrate":[],"semantic_score":0,"notes":""}',
+      1500
+    );
+
+    const m4 = JSON.parse(m4Result.replace(/```json|```/g,'').trim());
+    state.semanticData = { ...m4, targetKw, serpData, kwVariants, paaQuestions };
+
+    removeOptSpinner('spin-m4');
+    addOptMessage(
+      chatCard('◈ Mission 4/10 — Analyse sémantique', [
+        {
+          title: 'Mot-clé cible : ' + targetKw,
+          items: [
+            {label: 'Score sémantique', value: '<span class="chat-badge ' + (m4.semantic_score>=70?'cb-green':m4.semantic_score>=40?'cb-orange':'cb-red') + '">' + (m4.semantic_score||0) + '/100</span>'},
+            {label: 'Variantes à intégrer', value: (m4.retained_variants||[]).length + ' expressions'},
+            {label: 'Sous-thèmes manquants', value: (m4.missing_subtopics||[]).length + ' sujets'}
+          ]
+        },
+        m4.retained_variants?.length ? {
+          title: 'Variantes sémantiques retenues',
+          list: (m4.retained_variants||[]).map(v => '<span style="flex:1">' + v + '</span>')
+        } : null,
+        m4.missing_subtopics?.length ? {
+          title: 'Sous-thèmes manquants vs concurrents',
+          list: (m4.missing_subtopics||[]).map(t => '<span style="color:var(--rd)">✗</span> <span>' + t + '</span>')
+        } : null,
+        m4.paa_to_integrate?.length ? {
+          title: 'Questions PAA à intégrer',
+          list: (m4.paa_to_integrate||[]).map(q => '<span style="flex:1;font-size:12.5px">' + q + '</span>')
+        } : null,
+        m4.notes ? {title:'Notes', html:'<div style="font-size:12.5px;color:var(--t2)">' + m4.notes + '</div>'} : null
+      ].filter(Boolean)),
+      'bot'
+    );
+
+    await optM5();
+
+  } catch(e) {
+    removeOptSpinner('spin-m4');
+    addOptMessage('Erreur M4 : ' + e.message, 'bot');
+  }
+}
+
+// ─── MISSION 5 — ANALYSE STRUCTURELLE ────────────────────────
+async function optM5() {
+  const state = window.optState;
+  addOptSpinner('spin-m5', 'Mission 5/10 — Analyse structurelle…');
+
+  try {
+    const prompt5 = S.get('prompt_opt_m5') || DEF_PROMPTS.prompt_opt_m5;
+    const p = state.parsedData;
+    const targetLen = state.serpData?.items?.filter(i=>i.type==='organic').slice(0,3).reduce((s,i)=>s+(i.extended_snippet?.length||1200),0)/3 || 1300;
+
+    const m5Result = await callAnthropic(prompt5,
+      'STRUCTURE ACTUELLE:\nMots: ' + p.wordCount + '\nH2: ' + (p.h2s||[]).join(' | ') + '\nH3: ' + (p.h3s||[]).join(' | ') +
+      '\nFAQ: ' + (p.hasFaq?'présente':'absente') + '\nConclusion: ' + (p.hasConclusion?'présente':'absente') +
+      '\n\nLONGUEUR CIBLE: ~' + Math.round(targetLen) + ' mots' +
+      '\n\nMOT-CLÉ: ' + state.semanticData.targetKw +
+      '\nRéponds en JSON: {"structural_score":0,"h2_issues":[],"length_analysis":"","missing_sections":[],"sections_to_remove":[],"recommended_structure":[],"notes":""}',
+      1200
+    );
+
+    const m5 = JSON.parse(m5Result.replace(/```json|```/g,'').trim());
+    state.structuralData = { ...m5, targetLength: Math.round(targetLen) };
+
+    removeOptSpinner('spin-m5');
+    addOptMessage(
+      chatCard('◈ Mission 5/10 — Analyse structurelle', [
+        {
+          title: 'Structure actuelle vs cible',
+          items: [
+            {label: 'Score structure', value: '<span class="chat-badge ' + (m5.structural_score>=70?'cb-green':m5.structural_score>=40?'cb-orange':'cb-red') + '">' + (m5.structural_score||0) + '/100</span>'},
+            {label: 'Longueur actuelle', value: state.parsedData.wordCount + ' mots'},
+            {label: 'Longueur cible', value: '~' + Math.round(targetLen) + ' mots'},
+            {label: 'Analyse', value: '<span style="font-size:12.5px;color:var(--t2)">' + (m5.length_analysis||'') + '</span>'}
+          ]
+        },
+        m5.missing_sections?.length ? {
+          title: 'Sections manquantes',
+          list: (m5.missing_sections||[]).map(s => '<span style="color:var(--rd)">+</span> <span>' + s + '</span>')
+        } : null,
+        m5.h2_issues?.length ? {
+          title: 'Problèmes H2/H3 détectés',
+          list: (m5.h2_issues||[]).map(i => '<span style="color:var(--or)">⚠</span> <span style="font-size:12.5px">' + i + '</span>')
+        } : null
+      ].filter(Boolean)),
+      'bot'
+    );
+
+    await optM6();
+
+  } catch(e) {
+    removeOptSpinner('spin-m5');
+    addOptMessage('Erreur M5 : ' + e.message, 'bot');
+  }
+}
+
+// ─── MISSION 6 — AUDIT MAILLAGE ──────────────────────────────
+async function optM6() {
+  const state = window.optState;
+  addOptSpinner('spin-m6', 'Mission 6/10 — Audit maillage interne…');
+
+  try {
+    const p = state.parsedData;
+    const domain = S.get('site_domain') || 'mineralfrance.com';
+    const prompt6 = S.get('prompt_opt_m6') || DEF_PROMPTS.prompt_opt_m6;
+
+    const m6Result = await callAnthropic(prompt6,
+      'LIENS ACTUELS:\n' +
+      'Pages: ' + (p.pageLinks||[]).map(l=>l.url+'|'+l.text).join(', ') + '\n' +
+      'Produits: ' + (p.productLinks||[]).map(l=>l.url+'|'+l.text).join(', ') + '\n' +
+      'Collections: ' + (p.collectionLinks||[]).map(l=>l.url+'|'+l.text).join(', ') + '\n' +
+      'Externes: ' + (p.externalLinks||[]).map(l=>l.url).join(', ') + '\n' +
+      '\nDOMAINE: ' + domain + '\nMOT-CLÉ: ' + state.semanticData.targetKw +
+      '\nRéponds en JSON: {"maillage_score":0,"missing_links":[],"link_corrections":[],"anchor_issues":[],"notes":""}',
+      1000
+    );
+
+    const m6 = JSON.parse(m6Result.replace(/```json|```/g,'').trim());
+    state.maillagData = m6;
+
+    removeOptSpinner('spin-m6');
+    addOptMessage(
+      chatCard('◈ Mission 6/10 — Audit maillage', [
+        {
+          title: 'État du maillage',
+          items: [
+            {label: 'Score maillage', value: '<span class="chat-badge ' + (m6.maillage_score>=70?'cb-green':m6.maillage_score>=40?'cb-orange':'cb-red') + '">' + (m6.maillage_score||0) + '/100</span>'},
+            {label: 'Page mère', value: (p.pageLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'Produit', value: (p.productLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'Collection', value: (p.collectionLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'},
+            {label: 'Externe autorité', value: (p.externalLinks?.length||0) > 0 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-red">✗ Manquant</span>'}
+          ]
+        },
+        m6.missing_links?.length ? {
+          title: 'Liens manquants',
+          list: (m6.missing_links||[]).map(l => '<span style="color:var(--rd)">✗</span> <span>' + l + '</span>')
+        } : null,
+        m6.notes ? {title:'Notes', html:'<div style="font-size:12.5px;color:var(--t2)">' + m6.notes + '</div>'} : null
+      ].filter(Boolean)) +
+      '<div style="padding:8px 0 4px;font-size:13px;color:var(--t2)">Génération du plan de réécriture…</div>',
+      'bot'
+    );
+
+    await optM7();
+
+  } catch(e) {
+    removeOptSpinner('spin-m6');
+    addOptMessage('Erreur M6 : ' + e.message, 'bot');
+  }
+}
+
+// ─── MISSION 7 — PLAN DE RÉÉCRITURE ──────────────────────────
+async function optM7() {
+  const state = window.optState;
+  addOptSpinner('spin-m7', 'Mission 7/10 — Génération du plan de réécriture…');
+
+  try {
+    const prompt7 = S.get('prompt_opt_m7') || DEF_PROMPTS.prompt_opt_m7;
+    const p = state.parsedData;
+    const sem = state.semanticData;
+    const str = state.structuralData;
+    const mail = state.maillagData;
+
+    const m7Result = await callAnthropic(prompt7,
+      'ARTICLE: ' + state.selectedArticle.title +
+      '\nMOTS: ' + p.wordCount + ' → CIBLE: ' + str.targetLength +
+      '\nMOT-CLÉ: ' + sem.targetKw +
+      '\nSEMANTIQUE: score ' + sem.semantic_score + '/100, manque: ' + (sem.missing_subtopics||[]).join(', ') +
+      '\nSTRUCTURE: score ' + str.structural_score + '/100, manque: ' + (str.missing_sections||[]).join(', ') +
+      '\nMAILLAGE: score ' + mail.maillage_score + '/100, manque: ' + (mail.missing_links||[]).join(', ') +
+      '\nH2 ACTUELS: ' + (p.h2s||[]).join(' | ') +
+      '\nRéponds en JSON: {' +
+        '"global_score":0,' +
+        '"sections_a_conserver":["h2_title"],' +
+        '"sections_a_réécrire":[{"h2":"","h3":[],"length":0,"why":""}],' +
+        '"sections_a_ajouter":[{"h2":"","h3":[],"length":0,"why":""}],' +
+        '"target_length":0,' +
+        '"gain_estime":"pos X → Y"' +
+      '}',
+      1500
+    );
+
+    const m7 = JSON.parse(m7Result.replace(/```json|```/g,'').trim());
+    state.plan = m7;
+
+    removeOptSpinner('spin-m7');
+
+    const totalSections = (m7.sections_a_réécrire?.length||0) + (m7.sections_a_ajouter?.length||0);
+
+    addOptMessage(
+      chatCard('✦ Mission 7/10 — Plan de réécriture', [
+        {
+          title: 'Scores globaux',
+          items: [
+            {label: 'Score global', value: '<span class="chat-badge ' + (m7.global_score>=70?'cb-green':m7.global_score>=40?'cb-orange':'cb-red') + '">' + (m7.global_score||0) + '/100</span>'},
+            {label: 'Gain estimé', value: '<span class="chat-badge cb-blue">' + (m7.gain_estime||'N/A') + '</span>'},
+            {label: 'Longueur cible', value: (m7.target_length||str.targetLength) + ' mots'}
+          ]
+        },
+        m7.sections_a_conserver?.length ? {
+          title: '✓ Sections à conserver',
+          list: (m7.sections_a_conserver||[]).map(s => '<span class="chat-badge cb-green" style="margin-right:6px">✓</span><span>' + s + '</span>')
+        } : null,
+        m7.sections_a_réécrire?.length ? {
+          title: '✎ Sections à réécrire',
+          list: (m7.sections_a_réécrire||[]).map(s => '<span class="chat-badge cb-orange" style="margin-right:6px">↺</span><span style="flex:1">' + s.h2 + '</span><span style="color:var(--t3);font-size:11.5px">' + (s.length||'') + ' mots</span>')
+        } : null,
+        m7.sections_a_ajouter?.length ? {
+          title: '+ Sections à ajouter',
+          list: (m7.sections_a_ajouter||[]).map(s => '<span class="chat-badge cb-blue" style="margin-right:6px">+</span><span style="flex:1">' + s.h2 + '</span><span style="color:var(--t3);font-size:11.5px">' + (s.length||'') + ' mots</span>')
+        } : null
+      ].filter(Boolean)) +
+      '<div class="chat-action">' +
+      '<button class="btn bp" onclick="optM8()">✓ Valider et lancer la réécriture (' + totalSections + ' sections)</button>' +
+      '<button class="btn bg" onclick="addOptMessage(\'Décrivez les modifications souhaitées.\',\'bot\')">Modifier le plan</button>' +
+      '</div>',
+      'bot'
+    );
+
+    // Affiche le plan dans le panneau droit
+    displayOptPlan(m7);
+
+  } catch(e) {
+    removeOptSpinner('spin-m7');
+    addOptMessage('Erreur M7 : ' + e.message, 'bot');
+  }
+}
+
+function displayOptPlan(plan) {
+  const right = document.getElementById('opt-right');
+  if (!right) return;
+  right.innerHTML = `
+    <div class="card">
+      <div class="ct">Plan de réécriture</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${(plan.sections_a_conserver||[]).map(s=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--gn)">
+            <span style="font-size:11px;color:var(--gn);font-weight:700">✓</span>
+            <span style="font-size:13px;flex:1">${s}</span>
+            <span style="font-size:11px;color:var(--t3)">Conservée</span>
+          </div>`).join('')}
+        ${(plan.sections_a_réécrire||[]).map(s=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--or)">
+            <span style="font-size:11px;color:var(--or);font-weight:700">↺</span>
+            <span style="font-size:13px;flex:1">${s.h2}</span>
+            <span style="font-size:11px;color:var(--t3)">${s.length||''} mots</span>
+          </div>`).join('')}
+        ${(plan.sections_a_ajouter||[]).map(s=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--ac)">
+            <span style="font-size:11px;color:var(--ac);font-weight:700">+</span>
+            <span style="font-size:13px;flex:1">${s.h2}</span>
+            <span style="font-size:11px;color:var(--t3)">${s.length||''} mots</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ─── MISSION 8 — RÉÉCRITURE SECTION PAR SECTION ──────────────
+async function optM8() {
+  const state = window.optState;
+  const plan = state.plan;
+  const sem = state.semanticData;
+  const sectionsToWrite = [...(plan.sections_a_réécrire||[]), ...(plan.sections_a_ajouter||[])];
+
+  addOptMessage(
+    chatCard('↺ Mission 8/10 — Réécriture en cours', [{
+      html: sectionsToWrite.map((s,i) =>
+        '<div id="sec-status-' + i + '" style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">' +
+        '<span style="width:16px;color:var(--t3)">○</span><span>' + s.h2 + '</span>' +
+        '</div>'
+      ).join('')
+    }]),
+    'bot'
+  );
+
+  const prompt8 = S.get('prompt_opt_m8') || DEF_PROMPTS.prompt_opt_m8;
+  const writtenSections = [];
+  state.sections = [];
+
+  for (let i = 0; i < sectionsToWrite.length; i++) {
+    const section = sectionsToWrite[i];
+    const statusEl = document.getElementById('sec-status-' + i);
+    if (statusEl) statusEl.innerHTML = '<span style="width:16px">' + sp() + '</span><span><strong>' + section.h2 + '</strong></span>';
+
+    try {
+      const tone = S.get('editorial_tone') || 'Expert, pédagogique, vouvoiement';
+      const sectionHtml = await callAnthropic(prompt8,
+        'MOT-CLÉ: ' + sem.targetKw +
+        '\nVARIANTES: ' + (sem.retained_variants||[]).join(', ') +
+        '\nVARIANTES À IGNORER: ' + (sem.ignored_variants||[]).join(', ') +
+        '\nTON: ' + tone +
+        '\nSECTIONS DÉJÀ RÉDIGÉES:\n' + writtenSections.map(s=>s.h2+': '+s.html.slice(0,200)).join('\n') +
+        '\nSECTION À RÉDIGER: H2: ' + section.h2 +
+        '\nH3: ' + (section.h3||[]).join(', ') +
+        '\nLONGUEUR: ' + (section.length||300) + ' mots' +
+        '\nCONTENU ATTENDU: ' + (section.why||'') +
+        '\nRetourne UNIQUEMENT le HTML de la section.',
+        2000
+      );
+
+      writtenSections.push({h2: section.h2, html: sectionHtml});
+      state.sections.push({h2: section.h2, html: sectionHtml, type: plan.sections_a_réécrire?.find(s=>s.h2===section.h2) ? 'rewrite' : 'add'});
+
+      if (statusEl) statusEl.innerHTML = '<span style="width:16px;color:var(--gn)">✓</span><span>' + section.h2 + ' — ' + wc(sectionHtml) + ' mots</span>';
+
+    } catch(e) {
+      if (statusEl) statusEl.innerHTML = '<span style="width:16px;color:var(--rd)">✗</span><span>' + section.h2 + ' — Erreur</span>';
+    }
+  }
+
+  addOptMessage(
+    '<div style="font-size:13.5px">✓ <strong>' + sectionsToWrite.length + ' section(s)</strong> rédigée(s).</div>' +
+    '<div class="chat-action">' +
+    '<button class="btn bp" onclick="optM9()">Assembler l\'article →</button>' +
+    '</div>',
+    'bot'
+  );
+}
+
+// ─── MISSION 9 — ASSEMBLAGE + MÉTADONNÉES ────────────────────
+async function optM9() {
+  const state = window.optState;
+  addOptSpinner('spin-m9', 'Mission 9/10 — Assemblage de l\'article…');
+
+  try {
+    const plan = state.plan;
+    const original = state.articleData?.body_html || '';
+    const domain = S.get('site_domain') || 'mineralfrance.com';
+
+    // Construit l'article dans l'ordre du plan
+    const allSections = [];
+
+    // Sections conservées — extrait depuis le HTML original
+    for (const title of (plan.sections_a_conserver||[])) {
+      const regex = new RegExp('<h2[^>]*>[^<]*' + title.replace(/[-.*+?^${}()|[\]\\]/g,'\\$&').slice(0,20) '[^<]*</h2>[\s\S]*?(?=<h2|$)', 'i');
+      const match = original.match(regex);
+      if (match) allSections.push(match[0]);
+    }
+
+    // Sections réécrites / ajoutées
+    for (const sec of state.sections) {
+      allSections.push(sec.html);
+    }
+
+    // Réinjecte les images aux positions originales
+    let assembled = allSections.join('\n\n');
+    // Réinjecte les images si elles sont présentes dans le HTML original
+    const imgMatches = [...original.matchAll(/<img[^>]+>/gi)];
+    if (imgMatches.length > 0 && assembled.indexOf('<img') === -1) {
+      // Insère la première image après le premier paragraphe
+      assembled = assembled.replace('</p>', '</p>\n' + (imgMatches[0]?.[0]||''));
+    }
+
+    state.assembledHtml = assembled;
+
+    // Génère les métadonnées via Claude
+    updateOptSpinner('spin-m9', 'Mission 9/10 — Génération des métadonnées…');
+    const prompt9 = S.get('prompt_opt_m9') || DEF_PROMPTS.prompt_opt_m9;
+    const metaResult = await callAnthropic(prompt9,
+      'ARTICLE: ' + assembled.replace(/<[^>]+>/g,' ').slice(0,1500) +
+      '\nMOT-CLÉ: ' + state.semanticData.targetKw +
+      '\nDOMAINE: ' + domain +
+      '\nBLOG: ' + state.blogHandle +
+      '\nHANDLE: ' + state.selectedArticle.handle +
+      '\nTITRE: ' + state.selectedArticle.title,
+      2000
+    );
+
+    const meta = JSON.parse(metaResult.replace(/```json|```/g,'').trim());
+    state.metadata = meta;
+
+    removeOptSpinner('spin-m9');
+
+    const finalWordCount = wc(assembled);
+    addOptMessage(
+      chatCard('✦ Mission 9/10 — Article assemblé', [
+        {
+          title: 'Contenu final',
+          items: [
+            {label: 'Longueur finale', value: finalWordCount + ' mots ' + (finalWordCount >= (plan.target_length||1200)*0.9 ? '<span class="chat-badge cb-green">✓</span>' : '<span class="chat-badge cb-orange">⚠</span>')},
+            {label: 'Images', value: (state.images?.length||0) + ' réinjectée(s)'},
+            {label: 'JSON-LD', value: meta.jsonld_blogposting ? '<span class="chat-badge cb-green">BlogPosting ✓</span>' : ''}
+          ]
+        },
+        {
+          title: 'Métadonnées générées',
+          items: [
+            {label: 'Meta title', value: (meta.meta_title||'') + ' <span style="color:var(--t3);font-size:11.5px">(' + (meta.meta_title_length||0) + ' car.)</span>'},
+            {label: 'Meta description', value: '<span style="font-size:12px">' + (meta.meta_description||'').slice(0,60) + '…</span> <span style="color:var(--t3);font-size:11.5px">(' + (meta.meta_description_length||0) + ' car.)</span>'},
+            {label: 'Handle URL', value: meta.url_handle||''},
+            {label: 'Tags', value: (meta.tags||[]).join(', ')}
+          ]
+        }
+      ]) +
+      '<div class="chat-action">' +
+      '<button class="btn bp" style="background:#2d8a5a" onclick="optM10()">↑ Pousser en brouillon Shopify</button>' +
+      '<button class="btn bg" onclick="displayOptPreview()">👁 Prévisualiser</button>' +
+      '</div>',
+      'bot'
+    );
+
+    displayOptPreview();
+
+  } catch(e) {
+    removeOptSpinner('spin-m9');
+    addOptMessage('Erreur M9 : ' + e.message, 'bot');
+  }
+}
+
+function displayOptPreview() {
+  const state = window.optState;
+  const right = document.getElementById('opt-right');
+  if (!right || !state.assembledHtml) return;
+  right.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="btn bp" onclick="optM10()" style="background:#2d8a5a">↑ Pousser en brouillon</button>
+      <button class="btn bs" onclick="navigator.clipboard.writeText(document.getElementById('opt-html-preview').value)">📋 Copier HTML</button>
+    </div>
+    <div class="card" style="overflow-y:auto;flex:1">
+      <div class="ct">Article optimisé — HTML</div>
+      <textarea id="opt-html-preview" style="width:100%;height:500px;font-family:var(--mono);font-size:11.5px;border:1px solid var(--bd);border-radius:var(--r);padding:12px;resize:vertical;background:var(--bg2)">${state.assembledHtml}</textarea>
+    </div>`;
+}
+
+// ─── MISSION 10 — PUSH SHOPIFY ────────────────────────────────
+async function optM10() {
+  const state = window.optState;
+  if (!state.assembledHtml || !state.metadata) { toast('Article non assemblé', 'err'); return; }
+
+  addOptSpinner('spin-m10', 'Mission 10/10 — Push Shopify en brouillon…');
+
+  try {
+    const meta = state.metadata;
+    const domain = S.get('site_domain') || 'mineralfrance.com';
+
+    // Injecte le JSON-LD en début de body
+    let finalBody = state.assembledHtml;
+    if (meta.jsonld_blogposting) {
+      finalBody = '<script type="application/ld+json">' + JSON.stringify(meta.jsonld_blogposting) + '<\/script>\n' +
+        (meta.jsonld_faqpage ? '<script type="application/ld+json">' + JSON.stringify(meta.jsonld_faqpage) + '<\/script>\n' : '') +
+        (meta.jsonld_breadcrumb ? '<script type="application/ld+json">' + JSON.stringify(meta.jsonld_breadcrumb) + '<\/script>\n' : '') +
+        finalBody;
+    }
+
+    const result = await sReq('/admin/api/2024-01/blogs/' + state.blogId + '/articles/' + state.selectedArticle.id + '.json', 'PUT', {
+      article: {
+        id: parseInt(state.selectedArticle.id),
+        body_html: finalBody,
+        title: state.selectedArticle.title,
+        meta_title: meta.meta_title || '',
+        meta_description: meta.meta_description || '',
+        handle: meta.url_handle || state.selectedArticle.handle,
+        tags: (meta.tags||[]).join(', '),
+        published: false
+      }
+    });
+
+    removeOptSpinner('spin-m10');
+
+    if (result.article) {
+      S.addHist({type:'optimize', title:state.selectedArticle.title, blog:state.blogTitle});
+      const articleUrl = 'https://' + domain + '/blogs/' + state.blogHandle + '/' + (meta.url_handle||state.selectedArticle.handle);
+
+      addOptMessage(
+        chatCard('✓ Mission 10/10 — Article mis à jour', [
+          {
+            title: state.selectedArticle.title,
+            items: [
+              {label: 'Statut', value: '<span class="chat-badge cb-orange">Brouillon</span>'},
+              {label: 'URL', value: '<a href="' + articleUrl + '" target="_blank" style="color:var(--ac);font-size:12.5px">' + articleUrl + ' ↗</a>'},
+              {label: 'Historique', value: '<span class="chat-badge cb-green">✓ Mis à jour</span>'}
+            ]
+          },
+          {
+            title: 'À faire avant publication',
+            list: [
+              '→ Relecture finale de l\'article',
+              '→ Ajout des images manquantes',
+              '→ Cliquer Publier dans Shopify'
+            ]
+          }
+        ]),
+        'bot'
+      );
+    } else {
+      throw new Error('Réponse Shopify invalide');
+    }
+
+  } catch(e) {
+    removeOptSpinner('spin-m10');
+    addOptMessage('Erreur push Shopify : ' + e.message, 'bot');
+  }
 }
 
 function deleteHist(index) {
@@ -998,6 +1959,43 @@ async function sendChat() {
   }
 }
 
+// Helper pour créer des cartes chat bien structurées
+function chatCard(title, sections) {
+  let html = '<div class="chat-card">';
+  if (title) html += '<div class="chat-card-title">' + title + '</div>';
+  sections.forEach((s, i) => {
+    html += '<div class="chat-section">';
+    if (s.title) html += '<div style="font-weight:600;font-size:12.5px;margin-bottom:6px;color:var(--t1)">' + s.title + '</div>';
+    if (s.items) {
+      s.items.forEach(item => {
+        html += '<div class="chat-kv"><span class="chat-kv-label">' + item.label + '</span><span class="chat-kv-value">' + item.value + '</span></div>';
+      });
+    }
+    if (s.list) {
+      html += '<ul class="chat-list">' + s.list.map(l => '<li>' + l + '</li>').join('') + '</ul>';
+    }
+    if (s.html) html += s.html;
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function posBadge(pos) {
+  const p = Math.round(pos);
+  if (p <= 7) return '<span class="chat-pos pos-green">' + p + '</span>';
+  if (p <= 15) return '<span class="chat-pos pos-orange">' + p + '</span>';
+  if (p <= 30) return '<span class="chat-pos pos-red">' + p + '</span>';
+  return '<span class="chat-pos pos-gray">' + p + '</span>';
+}
+
+function volBadge(vol) {
+  if (!vol || vol === 'N/A') return '<span class="chat-badge cb-gray">N/A</span>';
+  if (vol >= 1000) return '<span class="chat-badge cb-green">' + vol.toLocaleString('fr') + '/mois</span>';
+  if (vol >= 200) return '<span class="chat-badge cb-blue">' + vol.toLocaleString('fr') + '/mois</span>';
+  return '<span class="chat-badge cb-gray">' + vol + '/mois</span>';
+}
+
 function addChatMessage(text, role) {
   const container = document.getElementById('chat-messages');
   if (!container) return;
@@ -1120,18 +2118,32 @@ async function analyzeRequest(msg) {
       ? state.parentPageHeadings.slice(0,5).map(h => '• ' + h).join('<br>')
       : '⚠ Page mère non chargée';
 
+    const braceletCount = state.products.filter(p=>p.handle.includes('bracelet')||p.title.toLowerCase().includes('bracelet')).length;
+    const collectionCount = state.collections.filter(c=>!c.handle.includes('collier')&&!c.title.toLowerCase().includes('collier')).length;
+    
     addChatMessage(
-      '<strong>✅ Étape 1/4 — Analyse du site terminée</strong><br><br>' +
-      '<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px;line-height:1.8">' +
-      '<strong>📚 Blog analysé : ' + parsed.blog_title + '</strong><br>' +
-      '• ' + publishedArts.length + ' articles publiés, ' + draftArts.length + ' brouillons<br>' +
-      '• Articles publiés :<br>' + publishedArts.map(a=>'  → '+a.title).join('<br>') + '<br><br>' +
-      '<strong>📄 Page mère : ' + (state.parentPage ? state.parentPage.title : '⚠ Non détectée') + '</strong><br>' +
-      'Sujets couverts (à ne pas cannibaliser) :<br>' + topicsInPage + '<br><br>' +
-      '<strong>🛍 Ressources disponibles</strong><br>' +
-      '• Bracelets disponibles : ' + state.products.filter(p=>p.handle.includes('bracelet')||p.title.toLowerCase().includes('bracelet')).length + '<br>' +
-      '• Collections disponibles : ' + state.collections.filter(c=>!c.handle.includes('collier')&&!c.title.toLowerCase().includes('collier')).length +
-      '</div>',
+      chatCard('✅ Étape 1/4 — Analyse du site', [
+        {
+          title: '📚 Blog : ' + parsed.blog_title,
+          items: [
+            {label: 'Articles publiés', value: '<span class="chat-badge cb-green">' + publishedArts.length + '</span>'},
+            {label: 'Brouillons', value: '<span class="chat-badge cb-gray">' + draftArts.length + '</span>'},
+            {label: 'Page mère', value: state.parentPage ? '<span class="chat-badge cb-blue">' + state.parentPage.title + '</span>' : '<span class="chat-badge cb-orange">⚠ Non détectée</span>'},
+            {label: 'Bracelets dispo', value: braceletCount + ' produits'},
+            {label: 'Collections', value: collectionCount + ' collections'}
+          ]
+        },
+        {
+          title: '📄 Articles publiés',
+          list: publishedArts.map((a,i) => '<span style="color:var(--t3);font-size:11px;width:18px;display:inline-block">' + (i+1) + '.</span> ' + a.title)
+        },
+        {
+          title: '🚫 Sujets page mère (anti-cannibalisation)',
+          html: state.parentPageHeadings?.length
+            ? state.parentPageHeadings.slice(0,5).map(h=>'<div style="padding:2px 0;font-size:12.5px;color:var(--t2)">• ' + h + '</div>').join('')
+            : '<div style="color:var(--t3);font-size:12.5px">Page mère non chargée</div>'
+        }
+      ]),
       'bot'
     );
 
@@ -1235,18 +2247,37 @@ async function analyzeRequest(msg) {
       .sort((a,b)=>b.impressions-a.impressions).slice(0,5);
 
     addChatMessage(
-      '<strong>✅ Étape 2/4 — Recherche SEO terminée</strong><br><br>' +
-      '<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px;line-height:1.8">' +
-      '<strong>📈 Top opportunités DataForSEO</strong><br>' +
-      volumes.slice(0,8).map(v=>'• <strong>'+v.keyword+'</strong> : '+v.search_volume+'/mois').join('<br>') + '<br><br>' +
-      '<strong>🏆 Analyse SERP — "' + bestKw + '"</strong><br>' +
-      serpSites + '<br>' +
-      'Longueur moyenne top 3 : <strong>~' + state.targetLength + ' mots</strong><br><br>' +
-      '<strong>🔍 Positions GSC actuelles</strong><br>' +
-      (gscAll.length ? gscAll.map(r=>'• "'+r.keys[0]+'" → pos.<strong>'+Math.round(r.position)+'</strong> ('+r.impressions+' imp., CTR '+(r.ctr*100).toFixed(1)+'%)').join('<br>') : 'Aucune position détectée') + '<br><br>' +
-      '<strong>🔎 Longue traîne disponible</strong><br>' +
-      (longtails.slice(0,6).map(l=>'• '+l.keyword+' : '+l.search_volume+'/mois').join('<br>')||'Aucune') +
-      '</div>',
+      chatCard('✅ Étape 2/4 — Recherche SEO', [
+        {
+          title: '📈 Opportunités DataForSEO',
+          list: volumes.slice(0,8).map(v =>
+            '<span style="flex:1">' + v.keyword + '</span>' + volBadge(v.search_volume)
+          )
+        },
+        {
+          title: '🏆 SERP — "' + bestKw + '" · ~' + state.targetLength + ' mots',
+          list: (serpResult?.items?.filter(i=>i.type==='organic').slice(0,5)||[]).map((i,n) =>
+            '<span style="color:var(--t3);font-size:11px;width:16px">' + (n+1) + '.</span>' +
+            '<span style="flex:1;font-size:12.5px">' + i.domain + '</span>'
+          )
+        },
+        {
+          title: '🔍 Positions GSC',
+          list: gscAll.length
+            ? gscAll.map(r =>
+                posBadge(r.position) +
+                '<span style="flex:1">"' + r.keys[0] + '"</span>' +
+                '<span style="color:var(--t3);font-size:11.5px">' + r.impressions + ' imp.</span>'
+              )
+            : ['<span style="color:var(--t3)">Aucune position détectée</span>']
+        },
+        longtails.length > 0 ? {
+          title: '🔎 Longue traîne',
+          list: longtails.slice(0,5).map(l =>
+            '<span style="flex:1;font-size:12.5px">' + l.keyword + '</span>' + volBadge(l.search_volume)
+          )
+        } : null
+      ].filter(Boolean)),
       'bot'
     );
 
@@ -1316,20 +2347,32 @@ async function analyzeRequest(msg) {
     state.selectedProduct = product;
     state.selectedCollection = collection;
 
+    const recVol = volumes.find(v=>v.keyword===rec.keyword)?.search_volume||rec.volume||0;
     addChatMessage(
-      '<strong>✅ Étape 3/4 — Recommandation</strong><br><br>' +
-      '<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:13px;line-height:1.8">' +
-      '<strong>🎯 Sujet recommandé</strong><br>' +
-      '→ <strong>' + rec.keyword + '</strong><br>' +
-      'Volume : <strong>' + (volumes.find(v=>v.keyword===rec.keyword)?.search_volume||rec.volume||'N/A') + '</strong>/mois<br>' +
-      'Angle : ' + rec.angle + '<br><br>' +
-      '<strong>📋 Plan H2 proposé</strong><br>' +
-      (rec.h2_plan||[]).map((h,i)=>'H2 '+(i+1)+' : '+h).join('<br>') + '<br><br>' +
-      '<strong>✅ Anti-cannibalisation</strong><br>' +
-      rec.no_cannibal_proof + '<br><br>' +
-      '<strong>💡 Pourquoi ce sujet ?</strong><br>' +
-      rec.why_best +
-      '</div>',
+      chatCard('✅ Étape 3/4 — Recommandation', [
+        {
+          title: '🎯 Sujet recommandé',
+          items: [
+            {label: 'Mot-clé', value: '<strong>' + rec.keyword + '</strong>'},
+            {label: 'Volume', value: volBadge(recVol)},
+            {label: 'Angle', value: rec.angle}
+          ]
+        },
+        {
+          title: '📋 Plan H2 proposé',
+          list: (rec.h2_plan||[]).map((h,i) =>
+            '<span style="color:var(--t3);font-size:11px;width:40px">H2 ' + (i+1) + '</span><span>' + h + '</span>'
+          )
+        },
+        {
+          title: '✅ Anti-cannibalisation',
+          html: '<div style="font-size:12.5px;color:var(--t2);line-height:1.6">' + rec.no_cannibal_proof + '</div>'
+        },
+        {
+          title: '💡 Pourquoi ce sujet ?',
+          html: '<div style="font-size:12.5px;color:var(--t2);line-height:1.6">' + rec.why_best + '</div>'
+        }
+      ]),
       'bot'
     );
 
@@ -1346,20 +2389,33 @@ async function analyzeRequest(msg) {
     state.targetLength = state.targetLength || 1400;
 
     addChatMessage(
-      '<strong>📋 Brief final complet</strong><br><br>' +
-      '<div style="background:var(--ac2);border:1px solid #d4c4f0;border-radius:8px;padding:14px;font-size:13px;line-height:1.9">' +
-      '<strong>Titre suggéré :</strong> ' + rec.keyword + '<br>' +
-      '<strong>Longueur cible :</strong> ~' + state.targetLength + ' mots<br><br>' +
-      '<strong>Maillage interne :</strong><br>' +
-      '• Page mère → ' + (state.parentPage?.title||'N/A') + '<br>' +
-      '• Article précédent → ' + (state.prevArticle?.title||'Aucun') + '<br>' +
-      '• Produit → ' + (product?.title||'N/A') + '<br>' +
-      '• Collection → ' + (collection?.title||'N/A') + '<br><br>' +
-      '<strong>Liens autorité :</strong> mindat.org + wikipedia.org<br><br>' +
-      '<strong>Plan H2 :</strong><br>' +
-      (rec.h2_plan||[]).map((h,i)=>'• H2 '+(i+1)+' : '+h).join('<br>') +
-      '</div><br>' +
-      'Tapez <strong>oui</strong> pour lancer la rédaction, ou posez-moi des questions.',
+      chatCard('📋 Brief final', [
+        {
+          title: 'Résumé',
+          items: [
+            {label: 'Titre suggéré', value: '<strong>' + rec.keyword + '</strong>'},
+            {label: 'Longueur cible', value: '~' + state.targetLength + ' mots'},
+            {label: 'Volume', value: volBadge(recVol)}
+          ]
+        },
+        {
+          title: '🔗 Maillage interne',
+          items: [
+            {label: 'Page mère', value: state.parentPage ? '<span class="chat-badge cb-green">' + state.parentPage.title + '</span>' : '<span class="chat-badge cb-orange">N/A</span>'},
+            {label: 'Article précédent', value: state.prevArticle?.title || '<span style="color:var(--t3)">Aucun</span>'},
+            {label: 'Produit bracelet', value: product?.title || '<span style="color:var(--t3)">N/A</span>'},
+            {label: 'Collection', value: collection?.title || '<span style="color:var(--t3)">N/A</span>'},
+            {label: 'Liens autorité', value: 'mindat.org · wikipedia.org'}
+          ]
+        },
+        {
+          title: '📋 Plan H2',
+          list: (rec.h2_plan||[]).map((h,i) =>
+            '<span style="color:var(--t3);font-size:11px;width:40px">H2 ' + (i+1) + '</span><span>' + h + '</span>'
+          )
+        }
+      ]) +
+      '<div style="padding:10px 0 4px;font-size:13.5px">Tapez <strong>oui</strong> pour lancer la rédaction, ou posez-moi vos questions.</div>',
       'bot'
     );
 
