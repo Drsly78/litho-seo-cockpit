@@ -1384,7 +1384,8 @@ async function optM9() {
 
     // Sections conservées — extrait depuis le HTML original
     for (const title of (plan.sections_a_conserver||[])) {
-      const regex = new RegExp('<h2[^>]*>[^<]*' + title.replace(/[-.*+?^${}()|[\]\\]/g,'\\$&').slice(0,20) '[^<]*</h2>[\s\S]*?(?=<h2|$)', 'i');
+      const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').slice(0, 20);
+      const regex = new RegExp('<h2[^>]*>[^<]*' + escaped + '[^<]*<\/h2>[\\s\\S]*?(?=<h2|$)', 'i');
       const match = original.match(regex);
       if (match) allSections.push(match[0]);
     }
